@@ -1,4 +1,4 @@
-import dayjs from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 import utc from "dayjs/plugin/utc";
 
 
@@ -96,22 +96,20 @@ const TIME_RANGE_OPTION_NAMES = Object.freeze(
     Object.values(TIME_RANGE_OPTION).filter((value) => "string" === typeof value)
 );
 
-/**
- * Validates dates provided by the range picker callback are non-null.
- *
- * @param dates
- * @return
- */
-const isValidDateRange = (
-    dates: [dayjs.Dayjs | null, dayjs.Dayjs | null] | null
-): dates is [dayjs.Dayjs, dayjs.Dayjs] => {
-    return null !== dates && null !== dates[0] && null !== dates[1];
-};
-
+const convertDateTimeInputValueToDayjs = (value: string) : Dayjs => {
+    if (value === "") {
+        return dayjs("1970-01-01")
+    }
+    console.log(value)
+    // https://github.com/iamkun/dayjs/issues/596
+    // https://github.com/iamkun/dayjs/issues/1237
+    const newYear = parseInt(value.slice(0,4));
+    return dayjs(value).year(newYear).utc(true);
+}
 
 export {
+    convertDateTimeInputValueToDayjs,
     DEFAULT_TIME_RANGE,
-    isValidDateRange,
     TIME_RANGE_OPTION,
     TIME_RANGE_OPTION_DAYJS_MAP,
     TIME_RANGE_OPTION_NAMES,

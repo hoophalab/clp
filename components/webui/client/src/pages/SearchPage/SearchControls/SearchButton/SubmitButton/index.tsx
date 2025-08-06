@@ -34,6 +34,7 @@ const SubmitButton = () => {
      * Submits search query.
      */
     const handleSubmitButtonClick = useCallback(() => {
+        console.error("submit")
         // Update timeline to match range picker selection.
         const newTimelineConfig = computeTimelineConfig(timeRange);
         const {updateTimelineConfig} = useSearchStore.getState();
