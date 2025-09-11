@@ -63,6 +63,7 @@ tasks:
         && java -jar {{.G_ANTLR_JAR_FILE}} \
           -Dlanguage=TypeScript \
           -no-listener \
+          -visitor \
           -Xexact-output-dir SqlBase.g4 \
           -o generated \
           && find generated \

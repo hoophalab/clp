@@ -2,6 +2,7 @@ import {
     CLP_QUERY_ENGINES,
     SETTINGS_QUERY_ENGINE,
 } from "../../config";
+import {BuildSqlTest} from "./BuildSqlTest";
 import styles from "./index.module.css";
 import {ProgressBar} from "./Presto/ProgressBar";
 import SearchControls from "./SearchControls";
@@ -21,6 +22,7 @@ const SearchPage = () => {
     return (
         <>
             {SETTINGS_QUERY_ENGINE === CLP_QUERY_ENGINES.PRESTO && <ProgressBar/>}
+            <BuildSqlTest/>
             <div className={styles["searchPageContainer"]}>
                 <SearchControls/>
                 {SETTINGS_QUERY_ENGINE !== CLP_QUERY_ENGINES.PRESTO && <SearchResultsTimeline/>}
