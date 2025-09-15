@@ -11,6 +11,8 @@ import {
 import SqlBaseLexer from "./generated/SqlBaseLexer";
 import SqlBaseParser, {
     BooleanExpressionContext,
+    ColumnReferenceContext,
+    PredicatedContext,
     QueryNoWithContext,
     QuerySpecificationContext,
     RelationListContext,
@@ -155,6 +157,32 @@ class PrintVisitor extends SqlBaseVisitor<void> {
     }
 }
 
+const TIMESTAMP_IDENTIFIERS = new Set(["timestamp",
+    "\"timestamp\"",
+    "`timestamp`"]);
+
+class TimestampVisitor extends SqlBaseVisitor<void> {
+    hasTimestamp: boolean;
+
+    constructor () {
+        super();
+        this.visitPredicated = (ctx: PredicatedContext) => {
+            const columnReference = ctx.valueExpression().getChild(0);
+            if (columnReference instanceof ColumnReferenceContext) {
+                const id = columnReference.identifier();
+                if (TIMESTAMP_IDENTIFIERS.has(id.getText())) {
+                    this.hasTimestamp = true;
+                }
+            } else {
+                this.visitChildren(ctx);
+            }
+        };
+    }
+}
+
+class BooleanExpressionHasTimestampError extends Error {
+}
+
 interface BuildSearchQueryProps {
     selectItemList: string;
     relationList: string;
@@ -186,6 +214,20 @@ const buildSearchQuery = ({
     sortItemList,
     limitValue,
 }: BuildSearchQueryProps): string => {
+    let booleanExpressionTree = null;
+    if ("" !== booleanExpression) {
+        booleanExpressionTree = buildParser(booleanExpression)
+            .standaloneBooleanExpression()
+            .booleanExpression();
+        const visitor = new TimestampVisitor();
+        visitor.visit(booleanExpressionTree);
+        if (visitor.hasTimestamp) {
+            throw new BooleanExpressionHasTimestampError(
+                "Direct reference of timestamp column is not allowed."
+            );
+        }
+    }
+
     new Modifier({
         /* eslint-disable sort-keys */
         selectItemList: buildParser(selectItemList)
@@ -194,11 +236,7 @@ const buildSearchQuery = ({
         relationList: buildParser(relationList)
             .standaloneRelationList()
             .relationList(),
-        booleanExpression: "" === booleanExpression ?
-            null :
-            buildParser(booleanExpression)
-                .standaloneBooleanExpression()
-                .booleanExpression(),
+        booleanExpression: booleanExpressionTree,
         sortItemList: "" === sortItemList ?
             null :
             buildParser(sortItemList)
