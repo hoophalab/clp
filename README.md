@@ -5,7 +5,7 @@
 [![Discord][badge-discord]][yscope-community-discord]
 [![CLP on Zulip][badge-zulip]][yscope-community-zulip]
 
-YScope's Compressed Log Processor (CLP) compresses your logs, and allows you to search the
+What YScope's Compressed Log Processor (CLP) compresses your logs, and allows you to search the
 compressed logs without decompression. CLP supports both JSON logs and unstructured (i.e., free
 text) logs. It also supports real-time log compression within several logging libraries. CLP also
 includes purpose-built web interfaces for searching and viewing the compressed logs. To learn more
