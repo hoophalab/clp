@@ -201,11 +201,7 @@ tasks:
     deps: ["toolchains:rust"]
     dir: "{{.ROOT_DIR}}"
     cmd: |-
-      echo $HOME
-      echo $HOME/.cargo
-      type cargo
-      type rustup
-      ls $HOME
+      . "$HOME/.cargo/env"
       cargo build --release --bins --target-dir {{.G_RUST_BUILD_DIR}}
 
   clp-mcp-server:
@@ -235,7 +231,7 @@ tasks:
       - "init"
       - "python-libs"
       - "webui"
-      - "rust"
+      # - "rust"
 
   webui:
     env:
