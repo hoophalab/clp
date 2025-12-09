@@ -8,6 +8,7 @@
 #include <boost/regex.hpp>
 #include <fmt/chrono.h>
 #include <fmt/format.h>
+#include <spdlog/spdlog.h>
 #include <string_utils/string_utils.hpp>
 
 #include "../ErrorCode.hpp"
@@ -171,24 +172,30 @@ auto get_canonical_request(S3Url const& url, string_view query_string) -> string
 }  // namespace
 
 S3Url::S3Url(string const& url) {
-    // Virtual-hosted-style HTTP URL format: https://[bucket].s3.[region].[endpoint]/[key]
-    boost::regex const host_style_url_regex{fmt::format(
-            R"({}://(?<host>{}\.s3\.({}\.)?{})/{}.*))",
+    SPDLOG_INFO("parsing url {}", url);
+
+    auto const s{fmt::format(
+            R"({}://(?<host>{}\.s3\.({}\.)?{})/{}.*)",
             cSchemaRegex,
-            cBucketNameRegex,
-            cRegionCodeRegex,
+            cBucketRegex,
+            cRegionRegex,
             cEndpointRegex,
-            cKeyPrefixRegex
+            cKeyRegex
     )};
+    SPDLOG_INFO("formated host regexp {} {}", url, s);
+    // Virtual-hosted-style HTTP URL format: https://[bucket].s3.[region].[endpoint]/[key]
+    boost::regex const host_style_url_regex{s.c_str()};
+    SPDLOG_INFO("created host regexp{}", url);
     // Path-style HTTP URL format: https://s3.[region].[endpoint]/[bucket]/[key]
     boost::regex const path_style_url_regex{fmt::format(
             R"({}://(?<host>(s3\.({}\.)?)?{})/{}/{}.*)",
             cSchemaRegex,
-            cRegionCodeRegex,
+            cRegionRegex,
             cEndpointRegex,
-            cBucketNameRegex,
-            cKeyPrefixRegex
+            cBucketRegex,
+            cKeyRegex
     )};
+    SPDLOG_INFO("created regexp{}", url);
 
     boost::smatch match;
     if (boost::regex_match(url, match, host_style_url_regex)) {
@@ -196,6 +203,7 @@ S3Url::S3Url(string const& url) {
     } else if (boost::regex_match(url, match, path_style_url_regex)) {
         m_style = Style::Path;
     } else {
+        SPDLOG_INFO("regex doesn't maptch {}", url);
         throw OperationFailed(
                 ErrorCode_BadParam,
                 __FILENAME__,
@@ -203,6 +211,7 @@ S3Url::S3Url(string const& url) {
                 "Invalid S3 HTTP URL format: " + url
         );
     }
+    SPDLOG_INFO("regex matched {}", url);
 
     m_region = match["region"];
     m_bucket = match["bucket"];
@@ -213,6 +222,7 @@ S3Url::S3Url(string const& url) {
     if (m_region.empty()) {
         m_region = cDefaultRegion;
     }
+    SPDLOG_INFO("sccced parsing url {}", url);
 }
 
 auto
@@ -270,6 +280,7 @@ AwsAuthenticationSigner::generate_presigned_url(S3Url const& s3_url, string& pre
             );
             break;
     }
+    SPDLOG_INFO("singed url: {}", presigned_url);
     return ErrorCode_Success;
 }
 

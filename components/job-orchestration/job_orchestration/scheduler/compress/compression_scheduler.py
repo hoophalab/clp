@@ -314,6 +314,7 @@ def search_and_schedule_new_tasks(
                 return
         elif input_type == InputType.S3.value:
             try:
+                logger.error(f"input config: {input_config}")
                 _process_s3_input(input_config, paths_to_compress_buffer)
             except Exception as err:
                 logger.exception("Failed to process S3 input")
@@ -338,6 +339,7 @@ def search_and_schedule_new_tasks(
             )
             return
         paths_to_compress_buffer.flush()
+        logger.error(f"{paths_to_compress_buffer =}")
 
         _batch_and_submit_tasks(
             clp_config,

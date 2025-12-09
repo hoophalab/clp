@@ -26,7 +26,10 @@ from clp_py_utils.clp_config import (
     StorageType,
     WEBUI_COMPONENT_NAME,
 )
+from clp_py_utils.clp_logging import get_logger
 from clp_py_utils.core import FileMetadata
+
+logger = get_logger("compression_scheduler")
 
 # Constants
 AWS_ENDPOINT: Final[str] = "amazonaws.com"
@@ -186,8 +189,8 @@ def generate_container_auth_options(
 
 
 def _create_s3_client(
-    endpoint_url: str,
-    region_code: str,
+    endpoint_url: str | None,
+    region_code: str | None,
     s3_auth: AwsAuthentication,
     boto3_config: Config | None = None,
 ) -> boto3.client:
@@ -215,7 +218,7 @@ def _create_s3_client(
     return s3_client
 
 
-def parse_s3_url(s3_url: str) -> tuple[str, str, str, str]:
+def parse_s3_url(s3_url: str) -> tuple[str | None, str | None, str, str]:
     """
     Parses the region_code, bucket, and key_prefix from the given S3 URL.
     :param s3_url: A host-style URL or path-style URL.
@@ -250,22 +253,29 @@ def parse_s3_url(s3_url: str) -> tuple[str, str, str, str]:
     if match is None:
         raise ValueError(f"Unsupported URL format: {s3_url}")
 
+    schema = match.group("schema")
+    endpoint = match.group("endpoint")
     region_code = match.group("region_code")
     bucket_name = match.group("bucket_name")
-    endpoint = match.group("endpoint")
-    endpoint_url = "https://{endpoint}" if match.group("tls") is not None else "http://{endpoint}"
+
+    endpoint_url = f"{schema}://{endpoint}" if endpoint != AWS_ENDPOINT else None
     key_prefix = match.group("key_prefix")
 
     return endpoint_url, region_code, bucket_name, key_prefix
 
 
 def generate_s3_url(
-    endpoint_url: str, region_code: str | None, bucket_name: str, object_key: str
+    endpoint_url: str | None, region_code: str | None, bucket_name: str, object_key: str
 ) -> str:
     if not bool(bucket_name):
         raise ValueError("Bucket name is not specified")
     if not bool(object_key):
         raise ValueError("Object key is not specified")
+
+    if endpoint_url is None:
+        if region_code is None:
+            return f"https://{bucket_name}.s3.{AWS_ENDPOINT}/{object_key}"
+        return f"https://{bucket_name}.s3.{region_code}.{AWS_ENDPOINT}/{object_key}"
 
     endpoint_url_regex = re.compile(r"%s://%s/?$" % (SCHEMA_REGEXP, ENDPOINT_REGEXP))
     match = endpoint_url_regex.match(endpoint_url)
@@ -275,18 +285,10 @@ def generate_s3_url(
     schema = match.group("schema")
     endpoint = match.group("endpoint")
 
-    s3_url = ""
-    if endpoint == AWS_ENDPOINT:
-        if region_code is None:
-            s3_url = f"{schema}://{bucket_name}.{endpoint_url}/{object_key}"
-        else:
-            s3_url = f"{schema}://{bucket_name}.s3.{region_code}.{endpoint_url}/{object_key}"
-    elif region_code is None:
-        s3_url = f"{schema}://{endpoint_url}/{bucket_name}/{object_key}"
-    else:
-        s3_url = f"{schema}://s3.{region_code}.{endpoint_url}/{bucket_name}/{object_key}"
+    if region_code is None:
+        return f"{schema}://{endpoint}/{bucket_name}/{object_key}"
 
-    return s3_url
+    return f"{schema}://s3.{region_code}.{endpoint}/{bucket_name}/{object_key}"
 
 
 def s3_get_object_metadata(s3_input_config: S3InputConfig) -> list[FileMetadata]:
@@ -352,8 +354,8 @@ def s3_put(s3_config: S3Config, src_file: Path, dest_path: str) -> None:
 
 
 def s3_delete_by_key_prefix(
-    endpoint_url: str,
-    region_code: str,
+    endpoint_url: str | None,
+    region_code: str | None,
     bucket_name: str,
     key_prefix: str,
     s3_auth: AwsAuthentication,
@@ -368,8 +370,6 @@ def s3_delete_by_key_prefix(
     :raises: ValueError if any parameter is invalid.
     :raises: Propagates `boto3.client.delete_objects`'s exceptions.
     """
-    if not bool(region_code):
-        raise ValueError("Region code is not specified")
     if not bool(bucket_name):
         raise ValueError("Bucket name is not specified")
     if not bool(key_prefix):
@@ -568,6 +568,7 @@ def _iter_s3_objects(
         paginator_args["StartAfter"] = start_from
     pages = paginator.paginate(**paginator_args)
     for page in pages:
+        logger.error("new page")
         contents = page.get("Contents", None)
         if contents is None:
             continue

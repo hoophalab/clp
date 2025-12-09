@@ -578,8 +578,8 @@ class AwsAuthentication(BaseModel):
 
 
 class S3Config(BaseModel):
-    endpoint_url: str = "https://amazonaws.com"
-    region_code: NonEmptyStr | None
+    endpoint_url: str | None = None
+    region_code: NonEmptyStr | None = None
     bucket: NonEmptyStr
     key_prefix: str
     aws_authentication: AwsAuthentication
