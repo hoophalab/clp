@@ -165,7 +165,10 @@ def _generate_s3_logs_list(
     with open(output_file_path, "w") as file:
         for object_key in object_keys:
             s3_url = generate_s3_url(
-                s3_input_config.endpoint_url, s3_input_config.region_code, s3_input_config.bucket, object_key
+                s3_input_config.endpoint_url,
+                s3_input_config.region_code,
+                s3_input_config.bucket,
+                object_key,
             )
             file.write(s3_url)
             file.write("\n")

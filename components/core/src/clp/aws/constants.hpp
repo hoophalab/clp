@@ -7,6 +7,13 @@ namespace clp::aws {
 // Endpoint
 constexpr std::string_view cAwsEndpoint{"amazonaws.com"};
 
+// Regex
+constexpr std::string_view cSchemaRegex{R"((?P<schema>(http|https)))"};
+constexpr std::string_view cEndpointRegex{R"((?P<endpoint>[a-z0-9.-]+(\:[0-9]+)?))"};
+constexpr std::string_view cRegionCodeRegex{R"((?P<region_code>[a-z]+-[a-z]+-[0-9]))"};
+constexpr std::string_view cBucketNameRegex{R"((?P<bucket_name>[a-z0-9.-]+))"};
+constexpr std::string_view cKeyPrefixRegex{R"((?P<key_prefix>[^?]+))"};
+
 // Query String Parameter Names
 constexpr std::string_view cXAmzAlgorithm{"X-Amz-Algorithm"};
 constexpr std::string_view cXAmzCredential{"X-Amz-Credential"};

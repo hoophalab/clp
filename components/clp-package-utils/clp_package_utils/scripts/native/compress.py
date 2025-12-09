@@ -172,7 +172,9 @@ def _generate_clp_io_config(
     urls = logs_to_compress[1:]
 
     if s3_compress_subcommand == S3_OBJECT_COMPRESSION:
-        endpoint_url, region_code, bucket, key_prefix, keys = _parse_and_validate_s3_object_urls(urls)
+        endpoint_url, region_code, bucket, key_prefix, keys = _parse_and_validate_s3_object_urls(
+            urls
+        )
         return S3InputConfig(
             dataset=parsed_args.dataset,
             endpoint_url=endpoint_url,
