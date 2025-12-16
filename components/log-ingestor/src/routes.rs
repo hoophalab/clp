@@ -1,8 +1,7 @@
 use std::str::FromStr;
 
 use axum::{
-    Json,
-    Router,
+    Json, Router,
     extract::{Path, State},
     response::IntoResponse,
     routing::get,
@@ -15,39 +14,25 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::ingestion_job_manager::{Error as IngestionJobManagerError, IngestionJobManagerState};
 
-// `utoipa::OpenApi` triggers `clippy::needless_for_each`
-#[allow(clippy::needless_for_each)]
-mod api_doc {
-    // Using `super::...` can cause `super` to appear as a tag in the generated OpenAPI
-    // documentation. Importing the paths directly prevents this issue.
-    use super::{
-        __path_create_s3_scanner_job,
-        __path_create_sqs_listener_job,
-        __path_health,
-        __path_stop_and_delete_job,
-    };
-
-    #[derive(utoipa::OpenApi)]
-    #[openapi(
-        info(
-            title = "log-ingestor",
-            description = "log-ingestor for CLP",
-            contact(name = "YScope")
-        ),
-        tags(
-            (name = "Health", description = "Health check endpoint"),
-            (name = "IngestionJob", description = "Ingestion job orchestration endpoints")
-        ),
-        paths(
-            health,
-            create_s3_scanner_job,
-            create_sqs_listener_job,
-            stop_and_delete_job
-        )
-    )]
-    pub struct ApiDoc;
-}
-pub use api_doc::*;
+#[derive(utoipa::OpenApi)]
+#[openapi(
+    info(
+        title = "log-ingestor",
+        description = "log-ingestor for CLP",
+        contact(name = "YScope")
+    ),
+    tags(
+        (name = "Health", description = "Health check endpoint"),
+        (name = "IngestionJob", description = "Ingestion job orchestration endpoints")
+    ),
+    paths(
+        health,
+        create_s3_scanner_job,
+        create_sqs_listener_job,
+        stop_and_delete_job
+    )
+)]
+pub struct ApiDoc;
 
 /// Factory method to create an Axum router configured with all log ingestor routes.
 ///
