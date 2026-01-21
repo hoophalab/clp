@@ -195,6 +195,8 @@ mkdir -p \
 
 Install CLP with credentials and replicas.
 ```bash
+export CLP_HOME="/tmp/clp"
+
 # Credentials (change these for production)
 export CLP_DB_PASS="pass"
 export CLP_DB_ROOT_PASS="root-pass"
