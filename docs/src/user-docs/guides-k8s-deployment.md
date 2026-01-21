@@ -179,8 +179,7 @@ mkdir -p \
   "$CLP_HOME/var/tmp"
 ```
 
-Then on the **control-plane node**, create the required directories, generate credentials, and
-install CLP:
+Then on the control-plane node, create the required directories.
 
 ```bash
 export CLP_HOME="/tmp/clp"
@@ -192,7 +191,10 @@ mkdir -p \
   "$CLP_HOME/var/log/"{query_scheduler,query_worker,reducer} \
   "$CLP_HOME/var/log/"{garbage_collector,api_server,log_ingestor,mcp_server} \
   "$CLP_HOME/var/tmp"
+```
 
+Install CLP with credentials and replicas.
+```bash
 # Credentials (change these for production)
 export CLP_DB_PASS="pass"
 export CLP_DB_ROOT_PASS="root-pass"
