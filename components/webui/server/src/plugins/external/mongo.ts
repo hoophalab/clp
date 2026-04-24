@@ -4,9 +4,30 @@ import settings from "../../../settings.json" with {type: "json"};
 
 
 export const autoConfig = () => {
+    const params: Record<string, string> = {};
+    if (settings.MongoDbTls) {
+        params["tls"] = "true";
+        if (settings.MongoDbTlsCaFile) {
+            params["tlsCAFile"] = settings.MongoDbTlsCaFile;
+        }
+    }
+    if (settings.MongoDbDirectConnection) {
+        params["directConnection"] = "true";
+    }
+    if (settings.MongoDbReplicaSet) {
+        params["replicaSet"] = settings.MongoDbReplicaSet;
+    }
+    params["retryWrites"] = String(settings.MongoDbRetryWrites ?? false);
+
+    const authority = `${settings.MongoDbHost}:${settings.MongoDbPort}`;
+    const path = settings.MongoDbName;
+    const query = new URLSearchParams(params).toString();
+    const url = `mongodb://${authority}/${path}?${query}`;
+
     return {
         forceClose: true,
-        url: `mongodb://${settings.MongoDbHost}:${settings.MongoDbPort}/${settings.MongoDbName}?directConnection=true`,
+        url: url,
+        authMechanism: "SCRAM-SHA-1",
     };
 };
 

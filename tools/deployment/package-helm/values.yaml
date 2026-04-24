@@ -175,6 +175,23 @@ clpConfig:
     # Retention period for search results, in minutes. Set to null to disable automatic deletion.
     retention_period: 60
 
+    # Whether to use TLS for the results cache (MongoDB) connection.
+    tls: false
+
+    # Content of the results cache (MongoDB) CA certificate file.
+    # Provide using --set-file when installing, e.g.:
+    #   helm install ... --set-file clpConfig.results_cache.tls_ca_cert_content=/path/to/ca.crt
+    # Only used when tls is true.
+    tls_ca_cert_content: ""
+
+    # The replica set name for the MongoDB cluster. Set to null when connecting
+    # to DocumentDB or managed MongoDB services that manage replica sets
+    # automatically.
+    replica_set: null
+
+    # Whether to retry writable operations upon encountering network errors.
+    retry_writes: true
+
   compression_worker:
     logging_level: "INFO"
 

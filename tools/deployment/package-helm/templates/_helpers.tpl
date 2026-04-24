@@ -436,3 +436,73 @@ topologySpreadConstraints:
   {{- toYaml . | nindent 2 }}
 {{- end }}
 {{- end }}{{/* define "clp.createSchedulingConfigs" */}}
+
+{{/*
+Path inside the container where the results cache CA certificate is mounted.
+
+@return {string} The pod-local path for the results cache CA certificate
+*/}}
+{{- define "clp.resultsCacheTlsCaFile" -}}
+/etc/clp-results-cache-ca-cert/ca.crt
+{{- end }}
+
+{{/*
+Creates a volumeMount for the results cache TLS CA certificate.
+
+@return {string} YAML-formatted volumeMount definition
+*/}}
+{{- define "clp.resultsCacheTlsVolumeMount" -}}
+name: "results-cache-ca-cert"
+mountPath: {{ include "clp.resultsCacheTlsCaFile" . | dir | quote }}
+readOnly: true
+{{- end }}
+
+{{/*
+Creates a volume for the results cache TLS CA certificate, referencing the ConfigMap.
+
+@param {object} root Root template context
+@return {string} YAML-formatted volume definition
+*/}}
+{{- define "clp.resultsCacheTlsVolume" -}}
+name: "results-cache-ca-cert"
+configMap:
+  name: {{ include "clp.fullname" .root }}-config
+  items:
+    - key: "results-cache-ca.crt"
+      path: "ca.crt"
+{{- end }}
+
+{{/*
+Builds the full results cache MongoDB URI, including query parameters when configured.
+
+@param {object} . Root template context
+@return {string} The MongoDB connection URI
+*/}}
+{{- define "clp.resultsCacheUri" -}}
+{{- $params := list -}}
+{{- if .Values.clpConfig.results_cache.tls -}}
+{{- $params = append $params "tls=true" -}}
+{{- if .Values.clpConfig.results_cache.tls_ca_cert_content -}}
+{{- $params = append $params (printf "tlsCAFile=%s" (include "clp.resultsCacheTlsCaFile" .)) -}}
+{{- end -}}
+{{- end -}}
+{{- if .Values.clpConfig.results_cache.direct_connection -}}
+{{- $params = append $params "directConnection=true" -}}
+{{- end -}}
+{{- if .Values.clpConfig.results_cache.replica_set -}}
+{{- $params = append $params (printf "replicaSet=%s" .Values.clpConfig.results_cache.replica_set) -}}
+{{- end -}}
+{{- if not .Values.clpConfig.results_cache.retry_writes -}}
+{{- $params = append $params "retryWrites=false" -}}
+{{- end -}}
+{{- $base := printf "mongodb://%s:%s/%s"
+    (include "clp.resultsCacheHost" .)
+    (include "clp.resultsCachePort" . | toString)
+    .Values.clpConfig.results_cache.db_name
+-}}
+{{- if $params -}}
+{{- printf "%s?%s" $base (join "&" $params) -}}
+{{- else -}}
+{{- $base -}}
+{{- end -}}
+{{- end }}

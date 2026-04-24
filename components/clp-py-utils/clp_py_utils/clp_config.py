@@ -3,7 +3,7 @@ import pathlib
 from enum import auto
 from types import MappingProxyType
 from typing import Annotated, Any, ClassVar, Literal
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import yaml
 from pydantic import (
@@ -508,9 +508,36 @@ class ResultsCache(BaseModel):
     db_name: NonEmptyStr = "clp-query-results"
     stream_collection_name: NonEmptyStr = "stream-files"
     retention_period: PositiveInt | None = 60
+    tls: bool = False
+    tls_ca_file: NonEmptyStr | None = None
+    direct_connection: bool = True
+    replica_set: NonEmptyStr | None = None
+    retry_writes: bool = False
+
+    @model_validator(mode="after")
+    def validate_tls_config(self):
+        if self.tls_ca_file is not None and not self.tls:
+            raise ValueError("tls_ca_file requires tls to be enabled.")
+        return self
 
     def get_uri(self):
-        return f"mongodb://{self.host}:{self.port}/{self.db_name}"
+        uri = f"mongodb://{self.host}:{self.port}/{self.db_name}"
+
+        query: dict[str, str] = {}
+        if self.tls:
+            query["tls"] = "true"
+            if self.tls_ca_file:
+                query["tlsCAFile"] = self.tls_ca_file
+        if self.direct_connection:
+            query["directConnection"] = "true"
+        if self.replica_set is not None:
+            query["replicaSet"] = self.replica_set
+        if not self.retry_writes:
+            query["retryWrites"] = "false"
+        if query:
+            uri += "?" + urlencode(query, safe="", quote_via=quote)
+
+        return uri
 
     def transform_for_container(self, is_bundled: bool):
         self.host = RESULTS_CACHE_COMPONENT_NAME
