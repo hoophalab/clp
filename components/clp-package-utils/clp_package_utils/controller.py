@@ -743,6 +743,11 @@ class BaseController(ABC):
             "MongoDbHost": container_clp_config.results_cache.host,
             "MongoDbPort": container_clp_config.results_cache.port,
             "MongoDbName": self._clp_config.results_cache.db_name,
+            "MongoDbTls": self._clp_config.results_cache.tls,
+            "MongoDbTlsCaFile": self._clp_config.results_cache.tls_ca_file,
+            "MongoDbDirectConnection": self._clp_config.results_cache.direct_connection,
+            "MongoDbReplicaSet": self._clp_config.results_cache.replica_set,
+            "MongoDbRetryWrites": self._clp_config.results_cache.retry_writes,
             "MongoDbSearchResultsMetadataCollectionName": (
                 self._clp_config.webui.results_metadata_collection_name
             ),

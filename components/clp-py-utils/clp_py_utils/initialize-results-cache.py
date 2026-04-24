@@ -82,13 +82,26 @@ def init_replica_set_for_oplog(client: MongoClient, netloc: str, force: bool):
         "version": 1,
     }
 
-    if force:
-        # Use `force=True` so that we do not have to increment the version
-        client.admin.command("replSetReconfig", config, force=True)
-    else:
-        client.admin.command("replSetInitiate", config)
+    try:
+        if force:
+            # Use `force=True` so that we do not have to increment the version
+            client.admin.command("replSetReconfig", config, force=True)
+        else:
+            client.admin.command("replSetInitiate", config)
+    except OperationFailure as e:
+        if 303 == e.code:  # codeName: FeatureNotSupported
+            # Managed MongoDB services (e.g. Amazon DocumentDB) don't allow manual
+            # replica set configuration — they manage replica sets automatically.
+            logger.warning(
+                "Skipping replica set initialization: the server does not support"
+                " manual replica set configuration (e.g. Amazon DocumentDB)."
+                " Replica sets are managed automatically by the service."
+            )
+            return
+        raise
 
     logger.debug("Single-node replica set initialized successfully.")
+
 
 
 def init_replica_set_for_oplog_if_needed(client: MongoClient, uri: str):
@@ -114,6 +127,38 @@ def init_replica_set_for_oplog_if_needed(client: MongoClient, uri: str):
         init_replica_set_for_oplog(client, netloc=netloc, force=is_already_initialized)
 
 
+def enable_change_streams_if_needed(client: MongoClient, db_name: str):
+    """
+    Enables change streams at the database level for DocumentDB compatibility.
+
+    On Amazon DocumentDB, change streams must be explicitly enabled using the
+    `modifyChangeStreams` command before they can be used. On standard MongoDB,
+    change streams work natively with a replica set, so this command is not
+    needed and will fail silently.
+
+    :param client: The MongoDB client instance.
+    :param db_name: The database name to enable change streams for.
+    """
+    try:
+        client.admin.command({
+                             "modifyChangeStreams": 1,
+                             "collection": "",
+                             "database": db_name,
+                             "enable": True
+                         })
+        logger.info("Change streams enabled for database '%s'.", db_name)
+    except OperationFailure as e:
+        if 303 == e.code:  # FeatureNotSupported
+            logger.debug(
+                "modifyChangeStreams not supported — change streams work natively"
+                " with a replica set on this server."
+            )
+        else:
+            logger.warning(
+                "Could not enable change streams for database '%s': %s", db_name, e
+            )
+
+
 def main(argv):
     args_parser = argparse.ArgumentParser(description="Creates results cache indices for CLP.")
     args_parser.add_argument("--uri", required=True, help="URI of the results cache.")
@@ -125,11 +170,17 @@ def main(argv):
     results_cache_uri = parsed_args.uri
     stream_collection_name = parsed_args.stream_collection
 
+    parsed_uri = urlparse(results_cache_uri)
+    db_name = parsed_uri.path.lstrip("/")
+    if 0 == len(db_name):
+        raise ValueError("URI must include a database name: %s", results_cache_uri)
+
     try:
         with MongoClient(results_cache_uri, directConnection=True) as results_cache_client:
             init_replica_set_for_oplog_if_needed(results_cache_client, results_cache_uri)
 
         with MongoClient(results_cache_uri) as results_cache_client:
+            enable_change_streams_if_needed(results_cache_client, db_name)
             stream_collection = results_cache_client.get_default_database()[stream_collection_name]
 
             file_split_id_index = IndexModel(["file_split_id"])

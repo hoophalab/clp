@@ -81,6 +81,17 @@ log_ingestor: null
 #  # Retention period for search results, in minutes. Set to null to disable automatic deletion.
 #  retention_period: 60
 #
+#  # Whether to connect directly to the MongoDB host without discovering cluster topology.
+#  # Set to false for DocumentDB or managed MongoDB clusters.
+#  direct_connection: true
+#
+#  # The replica set name for the MongoDB cluster. Set to null when connecting to
+#  # DocumentDB or managed MongoDB services that manage replica sets automatically.
+#  replica_set: null
+#
+#  # Whether to retry writable operations upon encountering network errors.
+#  retry_writes: false
+#
 #compression_worker:
 #  logging_level: "INFO"
 #
