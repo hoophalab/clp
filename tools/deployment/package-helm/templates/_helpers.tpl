@@ -438,13 +438,22 @@ topologySpreadConstraints:
 {{- end }}{{/* define "clp.createSchedulingConfigs" */}}
 
 {{/*
+Path inside the container where the results cache CA certificate is mounted.
+
+@return {string} The pod-local path for the results cache CA certificate
+*/}}
+{{- define "clp.resultsCacheTlsCaFile" -}}
+/etc/clp-results-cache-ca-cert/ca.crt
+{{- end }}
+
+{{/*
 Creates a volumeMount for the results cache TLS CA certificate.
 
 @return {string} YAML-formatted volumeMount definition
 */}}
 {{- define "clp.resultsCacheTlsVolumeMount" -}}
 name: "results-cache-ca-cert"
-mountPath: "/etc/clp-results-cache-ca-cert"
+mountPath: {{ include "clp.resultsCacheTlsCaFile" . | dir | quote }}
 readOnly: true
 {{- end }}
 
@@ -457,7 +466,10 @@ Creates a volume for the results cache TLS CA certificate, referencing the Confi
 {{- define "clp.resultsCacheTlsVolume" -}}
 name: "results-cache-ca-cert"
 configMap:
-  name: {{ include "clp.fullname" .root }}-results-cache-ca-cert
+  name: {{ include "clp.fullname" .root }}-config
+  items:
+    - key: "results-cache-ca.crt"
+      path: "ca.crt"
 {{- end }}
 
 {{/*
@@ -473,11 +485,7 @@ Builds the full results cache MongoDB URI, including TLS query parameters when c
     .Values.clpConfig.results_cache.db_name
 -}}
 {{- if .Values.clpConfig.results_cache.tls -}}
-{{- if .Values.clpConfig.results_cache.tls_ca_file -}}
-{{- printf "%s?tls=true&tlsCAFile=%s" $base .Values.clpConfig.results_cache.tls_ca_file -}}
-{{- else -}}
-{{- printf "%s?tls=true" $base -}}
-{{- end -}}
+{{- printf "%s?tls=true&tlsCAFile=%s" $base (include "clp.resultsCacheTlsCaFile" .) -}}
 {{- else -}}
 {{- $base -}}
 {{- end -}}
