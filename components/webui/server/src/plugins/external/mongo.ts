@@ -20,6 +20,7 @@ export const autoConfig = () => {
     return {
         forceClose: true,
         url: url,
+        authMechanism: "SCRAM-SHA-1",
     };
 };
 

@@ -525,6 +525,8 @@ class ResultsCache(BaseModel):
             query["tls"] = "true"
             if self.tls_ca_file:
                 query["tlsCAFile"] = self.tls_ca_file
+        query["directConnection"] = "true"
+        query["retryWrites"] = "false"
         if query:
             uri += "?" + urlencode(query, safe="", quote_via=quote)
 

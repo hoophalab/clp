@@ -82,11 +82,23 @@ def init_replica_set_for_oplog(client: MongoClient, netloc: str, force: bool):
         "version": 1,
     }
 
-    if force:
-        # Use `force=True` so that we do not have to increment the version
-        client.admin.command("replSetReconfig", config, force=True)
-    else:
-        client.admin.command("replSetInitiate", config)
+    try:
+        if force:
+            # Use `force=True` so that we do not have to increment the version
+            client.admin.command("replSetReconfig", config, force=True)
+        else:
+            client.admin.command("replSetInitiate", config)
+    except OperationFailure as e:
+        if 303 == e.code:  # codeName: FeatureNotSupported
+            # Managed MongoDB services (e.g. Amazon DocumentDB) don't allow manual
+            # replica set configuration — they manage replica sets automatically.
+            logger.warning(
+                "Skipping replica set initialization: the server does not support"
+                " manual replica set configuration (e.g. Amazon DocumentDB)."
+                " Replica sets are managed automatically by the service."
+            )
+            return
+        raise
 
     logger.debug("Single-node replica set initialized successfully.")
 
