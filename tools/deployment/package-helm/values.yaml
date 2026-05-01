@@ -175,6 +175,13 @@ clpConfig:
     # Retention period for search results, in minutes. Set to null to disable automatic deletion.
     retention_period: 60
 
+    # Whether to use TLS for the results cache (MongoDB) connection.
+    tls: false
+
+    # Path inside the container where the CA certificate will be mounted.
+    # Only used when tls is true.
+    tls_ca_file: "/etc/clp-results-cache-ca-cert/ca.crt"
+
   compression_worker:
     logging_level: "INFO"
 
@@ -273,6 +280,12 @@ credentials:
 
   redis:
     password: "pass"
+
+# Content of the results cache (MongoDB) CA certificate file.
+# Provide using --set-file when installing, e.g.:
+#   helm install ... --set-file results_cache_tls_ca_cert_content=/path/to/ca.crt
+# Required when clpConfig.results_cache.tls is true.
+results_cache_tls_ca_cert_content: ""
 
 serviceAccount:
   annotations:

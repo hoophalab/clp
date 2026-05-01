@@ -217,8 +217,8 @@ also set, `&tlsCAFile=<path>` is appended.
 :::{note}
 The `tls_ca_file` path must be reachable from inside the CLP containers. For Docker Compose
 deployments, mount the CA bundle into the container; for the Helm chart, use the
-`results_cache.tlsVolume` value to inject the certificate from a Kubernetes Secret or ConfigMap
-(see [the Helm chart values][helm-values] for an example).
+`results_cache.tls_ca_cert` value to inject the certificate (see [the Helm chart
+values][helm-values] for details).
 :::
 
 For AWS DocumentDB specifically, download the CA bundle from AWS:
@@ -228,6 +228,39 @@ wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 ```
 
 Then make it available to the CLP containers and set `tls_ca_file` to the in-container path.
+
+#### Helm chart: Injecting a CA certificate
+
+When deploying with the Helm chart, place the CA certificate file in the chart directory and set
+`tls_ca_cert` to its relative path. The chart automatically creates a ConfigMap, mounts it into
+all relevant pods, and sets `tls_ca_file` to the mount path.
+
+For example, to use the AWS DocumentDB CA bundle:
+
+1. Download the CA bundle and place it in the chart's `certs/` directory:
+
+   ```bash
+   wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
+     -O certs/results-cache-ca.crt
+   ```
+
+2. Install the chart with TLS and the CA certificate path:
+
+   ```bash
+   helm install clp ./tools/deployment/package-helm \
+     --set clpConfig.results_cache.tls=true \
+     --set clpConfig.results_cache.tls_ca_cert=certs/results-cache-ca.crt
+   ```
+
+By default, the certificate is mounted at `/etc/ssl/certs/results-cache-ca.pem`. To use a
+different path, set `tls_ca_file` explicitly:
+
+```bash
+helm install clp ./tools/deployment/package-helm \
+  --set clpConfig.results_cache.tls=true \
+  --set clpConfig.results_cache.tls_ca_file="/etc/custom/path/ca.pem" \
+  --set clpConfig.results_cache.tls_ca_cert=certs/results-cache-ca.crt
+```
 
 ## Configuring CLP to use external databases
 

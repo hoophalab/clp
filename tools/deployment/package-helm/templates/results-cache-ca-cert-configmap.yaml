@@ -1,0 +1,12 @@
+{{- if .Values.clpConfig.results_cache.tls }}
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata:
+  name: {{ include "clp.fullname" . }}-results-cache-ca-cert
+  labels:
+    {{- include "clp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: "results-cache-ca-cert"
+data:
+  ca.crt: |
+{{ .Values.results_cache_tls_ca_cert_content | indent 4 }}
+{{- end }}
