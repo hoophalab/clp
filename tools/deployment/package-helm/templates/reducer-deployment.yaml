@@ -53,7 +53,7 @@ spec:
               mountPath: "/etc/clp-config.yaml"
               subPath: "clp-config.yaml"
               readOnly: true
-            {{- if .Values.clpConfig.results_cache.tls }}
+            {{- if .Values.clpConfig.results_cache.tls_ca_cert_content }}
             - {{- include "clp.resultsCacheTlsVolumeMount" . | nindent 14 }}
             {{- end }}
           command: [
@@ -67,7 +67,7 @@ spec:
         - name: "config"
           configMap:
             name: {{ include "clp.fullname" . }}-config
-        {{- if .Values.clpConfig.results_cache.tls }}
+        {{- if .Values.clpConfig.results_cache.tls_ca_cert_content }}
         - {{- include "clp.resultsCacheTlsVolume" (dict "root" .) | nindent 10 }}
         {{- end }}
 {{- end }}

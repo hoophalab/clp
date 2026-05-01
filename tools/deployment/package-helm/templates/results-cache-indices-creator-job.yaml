@@ -37,11 +37,11 @@ spec:
             "--stream-collection",
             {{ .Values.clpConfig.results_cache.stream_collection_name | quote }}
           ]
-          {{- if .Values.clpConfig.results_cache.tls }}
+          {{- if .Values.clpConfig.results_cache.tls_ca_cert_content }}
           volumeMounts:
             - {{- include "clp.resultsCacheTlsVolumeMount" . | nindent 14 }}
           {{- end }}
-      {{- if .Values.clpConfig.results_cache.tls }}
+      {{- if .Values.clpConfig.results_cache.tls_ca_cert_content }}
       volumes:
         - {{- include "clp.resultsCacheTlsVolume" (dict "root" .) | nindent 10 }}
       {{- end }}

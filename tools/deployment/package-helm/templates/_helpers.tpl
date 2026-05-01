@@ -484,8 +484,10 @@ Builds the full results cache MongoDB URI, including TLS query parameters when c
     (include "clp.resultsCachePort" . | toString)
     .Values.clpConfig.results_cache.db_name
 -}}
-{{- if .Values.clpConfig.results_cache.tls -}}
+{{- if and .Values.clpConfig.results_cache.tls .Values.clpConfig.results_cache.tls_ca_cert_content -}}
 {{- printf "%s?tls=true&tlsCAFile=%s" $base (include "clp.resultsCacheTlsCaFile" .) -}}
+{{- else if .Values.clpConfig.results_cache.tls -}}
+{{- printf "%s?tls=true" $base -}}
 {{- else -}}
 {{- $base -}}
 {{- end -}}

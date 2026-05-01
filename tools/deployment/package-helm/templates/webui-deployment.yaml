@@ -79,7 +79,7 @@ spec:
             {{- if .Values.clpConfig.aws_config_directory }}
             - {{- include "clp.awsConfigVolumeMount" . | nindent 14 }}
             {{- end }}
-            {{- if .Values.clpConfig.results_cache.tls }}
+            {{- if .Values.clpConfig.results_cache.tls_ca_cert_content }}
             - {{- include "clp.resultsCacheTlsVolumeMount" . | nindent 14 }}
             {{- end }}
             {{- if eq .Values.clpConfig.logs_input.type "fs" }}
@@ -114,7 +114,7 @@ spec:
         {{- if .Values.clpConfig.aws_config_directory }}
         - {{- include "clp.awsConfigVolume" . | nindent 10 }}
         {{- end }}
-        {{- if .Values.clpConfig.results_cache.tls }}
+        {{- if .Values.clpConfig.results_cache.tls_ca_cert_content }}
         - {{- include "clp.resultsCacheTlsVolume" (dict "root" .) | nindent 10 }}
         {{- end }}
         {{- if eq .Values.clpConfig.logs_input.type "fs" }}

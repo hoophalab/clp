@@ -165,7 +165,7 @@ data:
       {{- end }}
       stream_collection_name: {{ .Values.clpConfig.results_cache.stream_collection_name | quote }}
       tls: {{ .Values.clpConfig.results_cache.tls }}
-      {{- if .Values.clpConfig.results_cache.tls }}
+      {{- if .Values.clpConfig.results_cache.tls_ca_cert_content }}
       tls_ca_file: {{ include "clp.resultsCacheTlsCaFile" . | quote }}
       {{- end }}
     {{- with .Values.clpConfig.stream_output }}
@@ -283,7 +283,7 @@ data:
       "MongoDbPort": {{ include "clp.resultsCachePort" . | int }},
       "MongoDbName": {{ .Values.clpConfig.results_cache.db_name | quote }},
       "MongoDbTls": {{ .Values.clpConfig.results_cache.tls }},
-{{- if .Values.clpConfig.results_cache.tls }}
+{{- if .Values.clpConfig.results_cache.tls_ca_cert_content }}
       "MongoDbTlsCaFile": {{ include "clp.resultsCacheTlsCaFile" . | quote }},
 {{- end }}
       "MongoDbSearchResultsMetadataCollectionName":
@@ -443,7 +443,7 @@ data:
     echo "node.id=$(hostname)" >> "${PRESTO_CONFIG_DIR}/node.properties"
 {{- end }}{{/* with .Values.clpConfig.presto */}}
 {{- end }}{{/* if has "presto" .Values.clpConfig.bundled */}}
-{{- if .Values.clpConfig.results_cache.tls }}
+{{- if .Values.clpConfig.results_cache.tls_ca_cert_content }}
   results-cache-ca.crt: |
 {{ .Values.clpConfig.results_cache.tls_ca_cert_content | indent 4 }}
 {{- end }}
