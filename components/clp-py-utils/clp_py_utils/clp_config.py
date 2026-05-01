@@ -3,7 +3,7 @@ import pathlib
 from enum import auto
 from types import MappingProxyType
 from typing import Annotated, Any, ClassVar, Literal
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import yaml
 from pydantic import (
@@ -519,13 +519,15 @@ class ResultsCache(BaseModel):
 
     def get_uri(self):
         uri = f"mongodb://{self.host}:{self.port}/{self.db_name}"
-        params = []
+
+        query: dict[str, str] = {}
         if self.tls:
-            params.append("tls=true")
+            query["tls"] = "true"
             if self.tls_ca_file:
-                params.append(f"tlsCAFile={self.tls_ca_file}")
-        if params:
-            uri += "?" + "&".join(params)
+                query["tlsCAFile"] = self.tls_ca_file
+        if query:
+            uri += "?" + urlencode(query, safe="", quote_via=quote)
+
         return uri
 
     def transform_for_container(self, is_bundled: bool):
