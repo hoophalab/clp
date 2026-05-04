@@ -56,6 +56,26 @@ class MongoWatcherCollection {
         if (this.#changeStreamsEnabled) {
             return;
         }
+        return;
+
+        try {
+            await this.#mongoDb.command({
+                modifyChangeStreams: 1,
+                collection: this.#collection.collectionName,
+                allow: {operations: ["insert", "update", "delete", "replace"]},
+                enable: 1,
+            });
+        } catch (err: unknown) {
+            const error = err as {code?: number};
+            if (303 === error.code) {
+                this.#logger.info(
+                    "modifyChangeStreams command not supported " +
+                    "(standard MongoDB); skipping."
+                );
+            } else {
+                throw err;
+            }
+        }
 
         this.#changeStreamsEnabled = true;
     }
