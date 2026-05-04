@@ -25,8 +25,13 @@ class MongoWatcherCollection {
 
     #logger: FastifyBaseLogger;
 
+    #mongoDb: Db;
+
     // Active watchers
     #queryIdtoWatcherMap: Map<QueryId, Watcher> = new Map();
+
+    // Whether change streams have been enabled for this collection (DocumentDB).
+    #changeStreamsEnabled: boolean = false;
 
     /**
      * @param collectionName
@@ -36,6 +41,23 @@ class MongoWatcherCollection {
     constructor (collectionName: string, logger: FastifyBaseLogger, mongoDb: Db) {
         this.#collection = mongoDb.collection(collectionName);
         this.#logger = logger;
+        this.#mongoDb = mongoDb;
+    }
+
+    /**
+     * Enables change streams for this collection on DocumentDB.
+     *
+     * On Amazon DocumentDB, change streams must be explicitly enabled using the
+     * `modifyChangeStreams` command before `.watch()` can be used. On standard
+     * MongoDB, this command doesn't exist and will fail with code 303, which is
+     * caught and ignored since change streams work natively with a replica set.
+     */
+    async #enableChangeStreams (): Promise<void> {
+        if (this.#changeStreamsEnabled) {
+            return;
+        }
+
+        this.#changeStreamsEnabled = true;
     }
 
     /**
@@ -121,11 +143,13 @@ class MongoWatcherCollection {
      * @param queryId
      * @param emitUpdate
      */
-    createWatcher (
+    async createWatcher (
         queryParams: QueryParameters,
         queryId: QueryId,
         emitUpdate: (data: object[]) => void
-    ): void {
+    ): Promise<void> {
+        await this.#enableChangeStreams();
+
         const watcherQuery = convertQueryToChangeStreamFormat(queryParams.query);
         const mongoWatcher = this.#collection.watch(
             [{$match: watcherQuery}],

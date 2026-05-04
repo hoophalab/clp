@@ -318,7 +318,7 @@ class MongoSocketIoServer {
                 this.#io.to(`${queryId}`).emit("collection::find::update", {queryId, data});
             };
 
-            watcherCollection.createWatcher(queryParameters, queryId, emitUpdate);
+            await watcherCollection.createWatcher(queryParameters, queryId, emitUpdate);
         }
         await watcherCollection.subscribe(queryId, socket);
     }

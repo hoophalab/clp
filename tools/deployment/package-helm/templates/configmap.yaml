@@ -156,8 +156,15 @@ data:
     {{- end }}
     results_cache:
       db_name: {{ .Values.clpConfig.results_cache.db_name | quote }}
+      direct_connection: {{ .Values.clpConfig.results_cache.direct_connection }}
       host: "{{ include "clp.resultsCacheHost" . }}"
       port: {{ include "clp.resultsCachePort" . | int }}
+      {{- if .Values.clpConfig.results_cache.replica_set }}
+      replica_set: {{ .Values.clpConfig.results_cache.replica_set | quote }}
+      {{- else }}
+      replica_set: null
+      {{- end }}
+      retry_writes: {{ .Values.clpConfig.results_cache.retry_writes }}
       {{- if .Values.clpConfig.results_cache.retention_period }}
       retention_period: {{ .Values.clpConfig.results_cache.retention_period | int }}
       {{- else }}
@@ -286,6 +293,11 @@ data:
 {{- if .Values.clpConfig.results_cache.tls_ca_cert_content }}
       "MongoDbTlsCaFile": {{ include "clp.resultsCacheTlsCaFile" . | quote }},
 {{- end }}
+      "MongoDbDirectConnection": {{ .Values.clpConfig.results_cache.direct_connection }},
+{{- if .Values.clpConfig.results_cache.replica_set }}
+      "MongoDbReplicaSet": {{ .Values.clpConfig.results_cache.replica_set | quote }},
+{{- end }}
+      "MongoDbRetryWrites": {{ .Values.clpConfig.results_cache.retry_writes }},
       "MongoDbSearchResultsMetadataCollectionName":
         {{ .Values.clpConfig.webui.results_metadata_collection_name | quote }},
       "MongoDbStreamFilesCollectionName":

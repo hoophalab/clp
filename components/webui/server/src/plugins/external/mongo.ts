@@ -10,14 +10,14 @@ export const autoConfig = () => {
         if (settings.MongoDbTlsCaFile) {
             params["tlsCAFile"] = settings.MongoDbTlsCaFile;
         }
-    } else {
-        // For the bundled MongoDB (single-node replica set in Docker),
-        // directConnection avoids DNS resolution issues with Docker internal
-        // hostnames, and replicaSet is known.
-        params["directConnection"] = "true";
-        params["replicaSet"] = "rs0";
     }
-    params["retryWrites"] = "false";
+    if (settings.MongoDbDirectConnection) {
+        params["directConnection"] = "true";
+    }
+    if (settings.MongoDbReplicaSet) {
+        params["replicaSet"] = settings.MongoDbReplicaSet;
+    }
+    params["retryWrites"] = String(settings.MongoDbRetryWrites ?? false);
 
     const authority = `${settings.MongoDbHost}:${settings.MongoDbPort}`;
     const path = settings.MongoDbName;

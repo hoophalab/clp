@@ -510,6 +510,9 @@ class ResultsCache(BaseModel):
     retention_period: PositiveInt | None = 60
     tls: bool = False
     tls_ca_file: NonEmptyStr | None = None
+    direct_connection: bool = True
+    replica_set: NonEmptyStr | None = None
+    retry_writes: bool = False
 
     @model_validator(mode="after")
     def validate_tls_config(self):
@@ -525,8 +528,12 @@ class ResultsCache(BaseModel):
             query["tls"] = "true"
             if self.tls_ca_file:
                 query["tlsCAFile"] = self.tls_ca_file
-        query["directConnection"] = "true"
-        query["retryWrites"] = "false"
+        if self.direct_connection:
+            query["directConnection"] = "true"
+        if self.replica_set is not None:
+            query["replicaSet"] = self.replica_set
+        if not self.retry_writes:
+            query["retryWrites"] = "false"
         if query:
             uri += "?" + urlencode(query, safe="", quote_via=quote)
 

@@ -473,21 +473,35 @@ configMap:
 {{- end }}
 
 {{/*
-Builds the full results cache MongoDB URI, including TLS query parameters when configured.
+Builds the full results cache MongoDB URI, including query parameters when configured.
 
 @param {object} . Root template context
 @return {string} The MongoDB connection URI
 */}}
 {{- define "clp.resultsCacheUri" -}}
+{{- $params := list -}}
+{{- if .Values.clpConfig.results_cache.tls -}}
+{{- $params = append $params "tls=true" -}}
+{{- if .Values.clpConfig.results_cache.tls_ca_cert_content -}}
+{{- $params = append $params (printf "tlsCAFile=%s" (include "clp.resultsCacheTlsCaFile" .)) -}}
+{{- end -}}
+{{- end -}}
+{{- if .Values.clpConfig.results_cache.direct_connection -}}
+{{- $params = append $params "directConnection=true" -}}
+{{- end -}}
+{{- if .Values.clpConfig.results_cache.replica_set -}}
+{{- $params = append $params (printf "replicaSet=%s" .Values.clpConfig.results_cache.replica_set) -}}
+{{- end -}}
+{{- if not .Values.clpConfig.results_cache.retry_writes -}}
+{{- $params = append $params "retryWrites=false" -}}
+{{- end -}}
 {{- $base := printf "mongodb://%s:%s/%s"
     (include "clp.resultsCacheHost" .)
     (include "clp.resultsCachePort" . | toString)
     .Values.clpConfig.results_cache.db_name
 -}}
-{{- if and .Values.clpConfig.results_cache.tls .Values.clpConfig.results_cache.tls_ca_cert_content -}}
-{{- printf "%s?tls=true&tlsCAFile=%s" $base (include "clp.resultsCacheTlsCaFile" .) -}}
-{{- else if .Values.clpConfig.results_cache.tls -}}
-{{- printf "%s?tls=true" $base -}}
+{{- if $params -}}
+{{- printf "%s?%s" $base (join "&" $params) -}}
 {{- else -}}
 {{- $base -}}
 {{- end -}}

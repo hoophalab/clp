@@ -10,6 +10,9 @@
     "MongoDbName": "clp-query-results",
     "MongoDbTls": false,
     "MongoDbTlsCaFile": null,
+    "MongoDbDirectConnection": true,
+    "MongoDbReplicaSet": null,
+    "MongoDbRetryWrites": false,
     "MongoDbSearchResultsMetadataCollectionName": "results-metadata",
     "MongoDbStreamFilesCollectionName": "stream-files",
 

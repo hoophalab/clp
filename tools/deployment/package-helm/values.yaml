@@ -184,6 +184,19 @@ clpConfig:
     # Only used when tls is true.
     tls_ca_cert_content: ""
 
+    # Whether to connect directly to the MongoDB host without discovering
+    # cluster topology. Set to false for DocumentDB or managed MongoDB clusters
+    # where the driver should discover replica set members automatically.
+    direct_connection: true
+
+    # The replica set name for the MongoDB cluster. Set to null when connecting
+    # to DocumentDB or managed MongoDB services that manage replica sets
+    # automatically.
+    replica_set: null
+
+    # Whether to retry writable operations upon encountering network errors.
+    retry_writes: true
+
   compression_worker:
     logging_level: "INFO"
 
