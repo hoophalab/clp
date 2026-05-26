@@ -558,6 +558,14 @@ def _timeout_stale_jobs(
             jobs_to_timeout.append(job_id)
 
     for job_id in jobs_to_timeout:
+        # Best-effort: revoke in-flight worker tasks so they don't keep running and write
+        # results to a job we've already failed. Implementation is per-task-manager.
+        job = scheduled_jobs[job_id]
+        try:
+            job.result_handle.revoke()
+        except Exception:
+            logger.exception("Failed to revoke tasks for compression job %s.", job_id)
+
         # Mark in-flight task rows as failed
         db_context.cursor.execute(
             f"UPDATE {COMPRESSION_TASKS_TABLE_NAME}"  # noqa: S608

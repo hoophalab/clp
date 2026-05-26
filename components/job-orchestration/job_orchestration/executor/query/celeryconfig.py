@@ -16,6 +16,11 @@ task_create_missing_queues = True
 broker_url = os.getenv("BROKER_URL")
 result_backend = os.getenv("RESULT_BACKEND")
 
+# Worker-level task time limits. The scheduler-side staleness sweep is a backstop for the case
+# where the worker pod is killed before it can honor these.
+task_soft_time_limit = 270  # SIGUSR1 raises SoftTimeLimitExceeded inside the task
+task_time_limit = 300  # SIGKILL the worker
+
 result_persistent = True
 result_expires = 7200
 

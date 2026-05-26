@@ -27,6 +27,11 @@ class SpiderTaskManager(TaskManager):
                 for task_result in job_results
             ]
 
+        def revoke(self) -> None:
+            # Spider has no equivalent of Celery's revoke(terminate=True); rely on
+            # the per-task time limit configured at submission time.
+            return
+
     def __init__(self, storage_url: str) -> None:
         self._driver = spider_py.Driver(storage_url)
 

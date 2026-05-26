@@ -28,6 +28,7 @@ from typing import Any
 import celery
 import msgpack
 import pymongo
+import redis
 from clp_py_utils.clp_config import (
     ClpConfig,
     Database,
@@ -851,8 +852,10 @@ def handle_pending_query_jobs(
                     job_id,
                     num_archives_for_search,
                 )
-        except TimeoutError:
-            # Some dispatch futures didn't complete in time — mark those jobs as failed
+        except concurrent.futures.TimeoutError:
+            # `as_completed` raises if any dispatch future hasn't finished within `timeout`.
+            # This guards against `dispatch_job_and_update_db` itself wedging (e.g., broker auth,
+            # MySQL stall inside the executor) — not a Celery-side timeout.
             for future in futures:
                 if not future.done():
                     job_id = future_to_job_id[future]
@@ -1106,7 +1109,7 @@ async def check_job_status_and_update_db(
                             try:
                                 job.current_sub_job_async_task_result.revoke(terminate=True)
                             except Exception:
-                                logger.warning(f"Failed to revoke tasks for job `{job_id}`.")
+                                logger.exception(f"Failed to revoke tasks for job `{job_id}`.")
                         if QueryJobType.SEARCH_OR_AGGREGATION == job.get_type():
                             if job.reducer_handler_msg_queues is not None:
                                 msg = ReducerHandlerMessage(ReducerHandlerMessageType.FAILURE)
@@ -1262,38 +1265,10 @@ async def main(argv: list[str]) -> int:
         logger.exception("Failed to kill hanging query jobs.")
         return -1
 
-    # Clean up jobs stuck in CANCELLING state from a previous scheduler lifetime
-    try:
-        with contextlib.closing(sql_adapter.create_connection()) as db_conn:
-            with contextlib.closing(db_conn.cursor()) as cursor:
-                cursor.execute(
-                    f"UPDATE {QUERY_JOBS_TABLE_NAME}"
-                    f" SET status={QueryJobStatus.CANCELLED}"
-                    f" WHERE status={QueryJobStatus.CANCELLING}"
-                )
-                num_cancelled = cursor.rowcount
-                if num_cancelled > 0:
-                    cursor.execute(
-                        f"UPDATE {QUERY_TASKS_TABLE_NAME}"
-                        f" SET status={QueryTaskStatus.CANCELLED}, duration=0"
-                        f" WHERE status IN ({QueryTaskStatus.PENDING}, {QueryTaskStatus.RUNNING})"
-                        f" AND job_id IN ("
-                        f"   SELECT id FROM {QUERY_JOBS_TABLE_NAME}"
-                        f"   WHERE status={QueryJobStatus.CANCELLED}"
-                        f" )"
-                    )
-                db_conn.commit()
-                if num_cancelled > 0:
-                    logger.info(f"Resolved {num_cancelled} stale CANCELLING jobs on startup.")
-    except Exception:
-        logger.exception("Failed to clean up CANCELLING jobs.")
-
     # Flush query Redis backend to remove stale GroupResult keys from dead workers
     try:
-        import redis as redis_lib
-
         redis_config = clp_config.redis
-        redis_client = redis_lib.Redis(
+        redis_client = redis.Redis(
             host=redis_config.host,
             port=redis_config.port,
             db=redis_config.query_backend_database,

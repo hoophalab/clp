@@ -16,6 +16,11 @@ task_routes = {
 }
 task_create_missing_queues = True
 
+# Worker-level task time limits. The scheduler-side staleness sweep is a backstop for the case
+# where the worker pod is killed before it can honor these.
+task_soft_time_limit = 540  # SIGUSR1 raises SoftTimeLimitExceeded inside the task
+task_time_limit = 600  # SIGKILL the worker
+
 # Results backend settings
 result_persistent = True
 result_expires = 7200

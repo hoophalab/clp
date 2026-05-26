@@ -19,6 +19,13 @@ class TaskManager(ABC):
             :return: A list of task results.
             """
 
+        @abstractmethod
+        def revoke(self) -> None:
+            """
+            Best-effort cancellation of the underlying tasks. Implementations should swallow
+            broker/storage errors so that callers can proceed with cleanup regardless.
+            """
+
     @abstractmethod
     def submit(self, task_params: list[dict[str, Any]]) -> ResultHandle:
         """
