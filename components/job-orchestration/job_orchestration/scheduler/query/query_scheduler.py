@@ -28,7 +28,6 @@ from typing import Any
 import celery
 import msgpack
 import pymongo
-import redis
 from clp_py_utils.clp_config import (
     ClpConfig,
     Database,
@@ -1264,23 +1263,6 @@ async def main(argv: list[str]) -> int:
     except Exception:
         logger.exception("Failed to kill hanging query jobs.")
         return -1
-
-    # Flush query Redis backend to remove stale GroupResult keys from dead workers
-    try:
-        redis_config = clp_config.redis
-        redis_client = redis.Redis(
-            host=redis_config.host,
-            port=redis_config.port,
-            db=redis_config.query_backend_database,
-            password=redis_config.password,
-        )
-        redis_client.flushdb()
-        redis_client.close()
-        logger.info(
-            f"Flushed query Redis backend (db={redis_config.query_backend_database}) on startup."
-        )
-    except Exception:
-        logger.exception("Failed to flush query Redis backend on startup.")
 
     logger.debug(f"Job polling interval {clp_config.query_scheduler.jobs_poll_delay} seconds.")
     try:
