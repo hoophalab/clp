@@ -837,7 +837,11 @@ def handle_pending_query_jobs(
 def try_getting_task_result(async_task_result):
     if not async_task_result.ready():
         return None
-    return async_task_result.get(interval=0.005)
+    try:
+        return async_task_result.get(timeout=300, interval=0.005)
+    except celery.exceptions.TimeoutError:
+        logger.error("Timed out waiting for task result.")
+        raise
 
 
 def found_max_num_latest_results(
