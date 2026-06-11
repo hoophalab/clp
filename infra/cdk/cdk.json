@@ -1,0 +1,22 @@
+{
+  "app": "pnpm exec ts-node --prefer-ts-exts bin/app.ts",
+  "watch": {
+    "include": [
+      "**"
+    ],
+    "exclude": [
+      "README.md",
+      "cdk*.json",
+      "**/*.d.ts",
+      "**/*.js",
+      "tsconfig.json",
+      "package*.json",
+      "pnpm-lock.yaml",
+      "node_modules",
+      "test"
+    ]
+  },
+  "context": {
+    "com.yscope.cloud/clusterName": "prod"
+  }
+}
