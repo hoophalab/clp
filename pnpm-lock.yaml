@@ -10,6 +10,9 @@ importers:
 
   infra/cdk:
     dependencies:
+      '@aws-cdk/lambda-layer-kubectl-v35':
+        specifier: ^2.1.0
+        version: 2.2.2(aws-cdk-lib@2.258.1(constructs@10.6.0))(constructs@10.6.0)
       aws-cdk-lib:
         specifier: ^2.257.0
         version: 2.258.1(constructs@10.6.0)
@@ -56,6 +59,12 @@ packages:
     bundledDependencies:
       - jsonschema
       - semver
+
+  '@aws-cdk/lambda-layer-kubectl-v35@2.2.2':
+    resolution: {integrity: sha512-QJYajbSLiKepLMn4Iu/xftbhYERkaqYcwtMH6EyqiiRZryV9g67fkfBk5BIfgRqOS9skmylprDci4Ev13RpThg==}
+    peerDependencies:
+      aws-cdk-lib: ^2.224.0
+      constructs: ^10.0.5
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -2085,6 +2094,11 @@ snapshots:
   '@aws-cdk/asset-node-proxy-agent-v6@2.1.2': {}
 
   '@aws-cdk/cloud-assembly-schema@54.2.0': {}
+
+  '@aws-cdk/lambda-layer-kubectl-v35@2.2.2(aws-cdk-lib@2.258.1(constructs@10.6.0))(constructs@10.6.0)':
+    dependencies:
+      aws-cdk-lib: 2.258.1(constructs@10.6.0)
+      constructs: 10.6.0
 
   '@babel/code-frame@7.29.7':
     dependencies:

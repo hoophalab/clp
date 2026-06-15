@@ -3,6 +3,7 @@
 import * as cdk from "aws-cdk-lib/core";
 import {AwsSolutionsChecks} from "cdk-nag";
 
+import {EksStack} from "../lib/eks-stack";
 import {VpcStack} from "../lib/vpc-stack";
 
 
@@ -28,6 +29,16 @@ const clusterName = app.node.tryGetContext("com.yscope.cloud/clusterName") as st
         "(e.g., dev, staging, prod)."
     );
 
+const clusterAdminRoleArn = app.node.tryGetContext(
+    "com.yscope.cloud/clusterAdminRoleArn"
+) as string | undefined ?? panic(
+    "Missing required context variable: " +
+    "'com.yscope.cloud/clusterAdminRoleArn'. Pass it via cdk.json or the " +
+    "CLI (-c com.yscope.cloud/clusterAdminRoleArn=arn:aws:iam::...). " +
+    "This role is used to map an IAM role to the EKS cluster admin " +
+    "(system:masters group)."
+);
+
 const env: cdk.Environment = {
     account: process.env.CDK_DEFAULT_ACCOUNT ??
         panic("CDK_DEFAULT_ACCOUNT is not set. Please verify login using aws cli"),
@@ -35,5 +46,12 @@ const env: cdk.Environment = {
         panic("CDK_DEFAULT_REGION is not set. Please verify login using aws cli"),
 };
 
+const vpcStack = new VpcStack(app, "Vpc", {clusterName, env});
+
 // eslint-disable-next-line no-new
-new VpcStack(app, "Vpc", {clusterName, env});
+new EksStack(app, "Eks", {
+    clusterAdminRoleArn: clusterAdminRoleArn,
+    clusterName: clusterName,
+    env: env,
+    vpc: vpcStack.vpc,
+});
