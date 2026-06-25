@@ -48,6 +48,10 @@ export class EksStack extends ClusterScopedStack {
             ],
             clusterName: props.clusterName,
             defaultCapacity: 0,
+
+            // eslint-disable-next-line no-warning-comments
+            // TODO: Change this back after public API access is no longer
+            // needed for debugging.
             endpointAccess: eks.EndpointAccess.PUBLIC_AND_PRIVATE,
             kubectlLayer: kubectlLayer,
             mastersRole: clusterAdminRole,
@@ -75,6 +79,26 @@ export class EksStack extends ClusterScopedStack {
 
     /* eslint-disable max-lines-per-function */
     private addNagSuppressions (): void {
+        // AwsSolutions-EKS1 flags EKS clusters with public Kubernetes API
+        // endpoint access enabled.
+        //
+        // Suppress it here temporarily because public endpoint access is
+        // needed for debugging.
+        //
+        // eslint-disable-next-line no-warning-comments
+        // TODO: Remove this suppression when public API access is disabled.
+        NagSuppressions.addResourceSuppressionsByPath(
+            this,
+            `/${this.node.path}/Cluster/Resource/Resource`,
+            [
+                {
+                    id: "AwsSolutions-EKS1",
+                    reason: "Public EKS API endpoint access is temporarily " +
+                        "enabled for debugging.",
+                },
+            ],
+        );
+
         // AwsSolutions-IAM4 flags IAM users, roles, or groups that use
         // AWS-managed policies.
         //

@@ -3,6 +3,7 @@
 import * as cdk from "aws-cdk-lib/core";
 import {AwsSolutionsChecks} from "cdk-nag";
 
+import {ClpRegistryStack} from "../lib/clp-registry-stack";
 import {EksStack} from "../lib/eks-stack";
 import {VpcStack} from "../lib/vpc-stack";
 
@@ -47,6 +48,9 @@ const env: cdk.Environment = {
 };
 
 const vpcStack = new VpcStack(app, "Vpc", {clusterName, env});
+
+// eslint-disable-next-line no-new
+new ClpRegistryStack(app, "ClpRegistry", {clusterName, env});
 
 // eslint-disable-next-line no-new
 new EksStack(app, "Eks", {
