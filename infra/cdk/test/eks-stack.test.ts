@@ -24,6 +24,9 @@ describe("EksStack", () => {
         });
 
         const template = Template.fromStack(stack);
+
         template.resourceCountIs("Custom::AWSCDK-EKS-Cluster", 1);
+        template.resourceCountIs("AWS::EKS::Addon", 1);
+        template.resourceCountIs("Custom::AWSCDK-EKS-KubernetesResource", 2);
     });
 });

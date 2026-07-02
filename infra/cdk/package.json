@@ -6,7 +6,9 @@
     "watch": "tsc -w",
     "test": "vitest run",
     "lint": "eslint .",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "cdk:cluster": "cdk --app \"pnpm exec ts-node --prefer-ts-exts bin/app.ts\"",
+    "cdk:deployment": "cdk --app \"pnpm exec ts-node --prefer-ts-exts bin/deployment-app.ts\""
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

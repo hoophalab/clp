@@ -1,7 +1,9 @@
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as cdk from "aws-cdk-lib/core";
 import {NagSuppressions} from "cdk-nag";
 import {Construct} from "constructs";
 
+import {clusterExportName} from "./cluster-exports";
 import {
     ClusterScopedStack,
     ClusterScopedStackProps,
@@ -35,16 +37,30 @@ export class VpcStack extends ClusterScopedStack {
             ],
         });
 
+        /* eslint-disable no-new */
+        new cdk.CfnOutput(this, "PrivateSubnetIds", {
+            exportName: clusterExportName(props.clusterName, "PrivateSubnetIds"),
+            value: cdk.Fn.join(
+                ",",
+                this.vpc.privateSubnets.map((subnet) => subnet.subnetId),
+            ),
+        });
+
+        new cdk.CfnOutput(this, "VpcId", {
+            exportName: clusterExportName(props.clusterName, "VpcId"),
+            value: this.vpc.vpcId,
+        });
+        /* eslint-enable no-new */
+
+        // AwsSolutions-VPC7 flags VPCs that do not have flow logs enabled.
+        //
+        // Suppress it here because this VPC does not need network traffic
+        // debugging and flow log destinations add storage costs.
         NagSuppressions.addResourceSuppressions(
             this.vpc,
             [
                 {
                     id: "AwsSolutions-VPC7",
-
-                    // Flow logs are disabled because:
-                    // 1. We do not anticipate debugging network traffic
-                    // 2. We want to avoid the associated S3/CloudWatch
-                    // storage costs
                     reason: "Flow logs are disabled to avoid destination " +
                         "costs and are not useful for debugging this VPC.",
                 },

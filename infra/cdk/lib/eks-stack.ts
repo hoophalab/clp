@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import {KubectlV35Layer} from "@aws-cdk/lambda-layer-kubectl-v35";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as eks from "aws-cdk-lib/aws-eks";
@@ -7,6 +8,7 @@ import * as cdk from "aws-cdk-lib/core";
 import {NagSuppressions} from "cdk-nag";
 import {Construct} from "constructs";
 
+import {clusterExportName} from "./cluster-exports";
 import {
     ClusterScopedStack,
     ClusterScopedStackProps,
@@ -21,14 +23,18 @@ export interface EksStackProps extends ClusterScopedStackProps {
 export class EksStack extends ClusterScopedStack {
     public readonly cluster: eks.Cluster;
 
+    /* eslint-disable max-lines-per-function, max-statements */
     constructor (scope: Construct, id: string, props: EksStackProps) {
         super(scope, id, props);
 
-        const clusterAdminRole = iam.Role.fromRoleArn(
-            this,
-            "ClusterAdminRole",
-            props.clusterAdminRoleArn,
-        );
+        const adminRole = iam.Role.fromRoleArn(this, "ClusterAdminRole", props.clusterAdminRoleArn);
+        const {kubectlRole} = this.createKubectlRoles(props);
+
+        // eslint-disable-next-line no-new
+        new cdk.CfnOutput(this, "KubectlRoleArn", {
+            exportName: clusterExportName(props.clusterName, "KubectlRoleArn"),
+            value: adminRole.roleArn,
+        });
 
         const controlPlaneLogGroup = new logs.LogGroup(this, "ControlPlaneLogGroup", {
             logGroupName: `/aws/eks/${props.clusterName}/cluster`,
@@ -54,39 +60,62 @@ export class EksStack extends ClusterScopedStack {
             // needed for debugging.
             endpointAccess: eks.EndpointAccess.PUBLIC_AND_PRIVATE,
             kubectlLayer: kubectlLayer,
-            mastersRole: clusterAdminRole,
+            mastersRole: adminRole,
             version: eks.KubernetesVersion.V1_35,
             vpc: props.vpc,
         });
 
-        this.cluster.node.addDependency(controlPlaneLogGroup);
-
-        // eslint-disable-next-line no-warning-comments
-        // TODO: Switch to ARM instances once things stabilize.
-        this.cluster.addNodegroupCapacity("NodeGroup", {
-            amiType: eks.NodegroupAmiType.AL2023_X86_64_STANDARD,
-            desiredSize: 2,
-            instanceTypes: [ec2.InstanceType.of(
-                ec2.InstanceClass.C8I,
-                ec2.InstanceSize.XLARGE,
-            )],
-            maxSize: 20,
-            minSize: 1,
+        /* eslint-disable no-new */
+        new cdk.CfnOutput(this, "ClusterEndpoint", {
+            exportName: clusterExportName(props.clusterName, "ClusterEndpoint"),
+            value: this.cluster.clusterEndpoint,
         });
 
-        this.addNagSuppressions();
-    }
+        new cdk.CfnOutput(this, "ClusterName", {
+            exportName: clusterExportName(props.clusterName, "ClusterName"),
+            value: this.cluster.clusterName,
+        });
 
-    /* eslint-disable max-lines-per-function */
-    private addNagSuppressions (): void {
+        new cdk.CfnOutput(this, "ClusterSecurityGroupId", {
+            exportName: clusterExportName(
+                props.clusterName,
+                "ClusterSecurityGroupId",
+            ),
+            value: this.cluster.clusterSecurityGroupId,
+        });
+
+        new cdk.CfnOutput(this, "KubectlSecurityGroupId", {
+            exportName: clusterExportName(
+                props.clusterName,
+                "KubectlSecurityGroupId",
+            ),
+            value: this.cluster.kubectlSecurityGroup?.securityGroupId ??
+                this.cluster.clusterSecurityGroupId,
+        });
+
+        new cdk.CfnOutput(this, "OpenIdConnectProviderArn", {
+            exportName: clusterExportName(
+                props.clusterName,
+                "OpenIdConnectProviderArn",
+            ),
+            value: this.cluster.openIdConnectProvider.openIdConnectProviderArn,
+        });
+
+        new cdk.CfnOutput(this, "OpenIdConnectProviderIssuer", {
+            exportName: clusterExportName(
+                props.clusterName,
+                "OpenIdConnectProviderIssuer",
+            ),
+            value: this.cluster.openIdConnectProvider.openIdConnectProviderIssuer,
+        });
+
+        /* eslint-enable no-new */
+
         // AwsSolutions-EKS1 flags EKS clusters with public Kubernetes API
         // endpoint access enabled.
         //
         // Suppress it here temporarily because public endpoint access is
-        // needed for debugging.
-        //
-        // eslint-disable-next-line no-warning-comments
-        // TODO: Remove this suppression when public API access is disabled.
+        // needed for debugging. See the TODO on endpointAccess above.
         NagSuppressions.addResourceSuppressionsByPath(
             this,
             `/${this.node.path}/Cluster/Resource/Resource`,
@@ -103,15 +132,210 @@ export class EksStack extends ClusterScopedStack {
         // AWS-managed policies.
         //
         // Suppress it here because the EKS L2 construct internally creates and
+        // manages this AWS-managed service role for EKS resources.
+        NagSuppressions.addResourceSuppressionsByPath(
+            this,
+            `/${this.node.path}/Cluster/Role/Resource`,
+            [
+                {
+                    id: "AwsSolutions-IAM4",
+                    reason: "The EKS cluster service role uses AWS-managed " +
+                        "policies generated by the EKS L2 construct.",
+                },
+            ],
+        );
+
+        this.cluster.node.addDependency(controlPlaneLogGroup);
+        this.cluster.awsAuth.addMastersRole(kubectlRole);
+        const ebsCsiDriverAddon = this.addEbsCsiDriverAddon();
+        this.addGp3StorageClass(ebsCsiDriverAddon);
+
+        // eslint-disable-next-line no-warning-comments
+        // TODO: Switch to ARM instances once things stabilize.
+        const nodeGroup = this.cluster.addNodegroupCapacity("NodeGroup", {
+            amiType: eks.NodegroupAmiType.AL2023_X86_64_STANDARD,
+            desiredSize: 2,
+            instanceTypes: [ec2.InstanceType.of(
+                ec2.InstanceClass.C8I,
+                ec2.InstanceSize.XLARGE,
+            )],
+            maxSize: 20,
+            minSize: 1,
+        });
+
+        // AwsSolutions-IAM4 flags IAM users, roles, or groups that use
+        // AWS-managed policies.
+        //
+        // Suppress it here because the EKS L2 construct internally creates and
+        // manages this AWS-managed service role for EKS resources.
+        NagSuppressions.addResourceSuppressionsByPath(
+            this,
+            `/${nodeGroup.node.path}/NodeGroupRole/Resource`,
+            [
+                {
+                    id: "AwsSolutions-IAM4",
+                    reason: "The EKS managed node group role uses AWS-managed " +
+                        "policies generated by the EKS L2 construct.",
+                },
+            ],
+        );
+
+        this.suppressEksProviderNags();
+    }
+    /* eslint-enable max-lines-per-function, max-statements */
+
+    private addEbsCsiDriverAddon (): eks.CfnAddon {
+        const conditions = new cdk.CfnJson(this, "EbsCsiDriverRoleConditions", {
+            value: {
+                [`${this.cluster.openIdConnectProvider.openIdConnectProviderIssuer}:aud`]:
+                    "sts.amazonaws.com",
+                [`${this.cluster.openIdConnectProvider.openIdConnectProviderIssuer}:sub`]:
+                    "system:serviceaccount:kube-system:ebs-csi-controller-sa",
+            },
+        });
+        const ebsCsiDriverRole = new iam.Role(this, "EbsCsiDriverRole", {
+            assumedBy: new iam.OpenIdConnectPrincipal(
+                this.cluster.openIdConnectProvider,
+                {
+                    StringEquals: conditions,
+                },
+            ),
+            description: "IAM role for the AWS EBS CSI driver EKS add-on.",
+            managedPolicies: [
+                iam.ManagedPolicy.fromAwsManagedPolicyName(
+                    "service-role/AmazonEBSCSIDriverPolicy",
+                ),
+            ],
+        });
+
+        // AwsSolutions-IAM4 flags IAM users, roles, or groups that use
+        // AWS-managed policies.
+        //
+        // Suppress it here because the AWS EBS CSI driver add-on uses the
+        // AWS-managed service policy published for that driver.
+        NagSuppressions.addResourceSuppressions(
+            ebsCsiDriverRole,
+            [
+                {
+                    id: "AwsSolutions-IAM4",
+                    reason: "The AWS EBS CSI driver add-on role uses the AWS-managed " +
+                        "EBS CSI driver policy.",
+                },
+            ],
+        );
+
+        return new eks.CfnAddon(this, "EbsCsiDriverAddon", {
+            addonName: "aws-ebs-csi-driver",
+            clusterName: this.cluster.clusterName,
+            resolveConflicts: "OVERWRITE",
+            serviceAccountRoleArn: ebsCsiDriverRole.roleArn,
+        });
+    }
+
+    private addGp3StorageClass (ebsCsiDriverAddon: eks.CfnAddon): void {
+        const gp3StorageClass = this.cluster.addManifest("Gp3StorageClass", {
+            allowVolumeExpansion: true,
+            apiVersion: "storage.k8s.io/v1",
+            kind: "StorageClass",
+            metadata: {
+                annotations: {
+                    "storageclass.kubernetes.io/is-default-class": "true",
+                },
+                name: "gp3",
+            },
+            parameters: {
+                encrypted: "true",
+                type: "gp3",
+            },
+            provisioner: "ebs.csi.aws.com",
+            reclaimPolicy: "Delete",
+            volumeBindingMode: "WaitForFirstConsumer",
+        });
+
+        gp3StorageClass.node.addDependency(ebsCsiDriverAddon);
+    }
+
+    private createKubectlRoles (
+        props: EksStackProps,
+    ): {
+        kubectlRole: iam.IRole;
+    } {
+        const kubectlLambdaRole = new iam.Role(this, "KubectlLambdaRole", {
+            assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
+            description: "Execution role for CLP Helm kubectl custom resources.",
+            managedPolicies: [
+                iam.ManagedPolicy.fromAwsManagedPolicyName(
+                    "service-role/AWSLambdaBasicExecutionRole",
+                ),
+                iam.ManagedPolicy.fromAwsManagedPolicyName(
+                    "service-role/AWSLambdaVPCAccessExecutionRole",
+                ),
+                iam.ManagedPolicy.fromAwsManagedPolicyName(
+                    "AmazonEC2ContainerRegistryPullOnly",
+                ),
+            ],
+        });
+
+        // AwsSolutions-IAM4 flags IAM users, roles, or groups that use
+        // AWS-managed policies.
+        //
+        // Suppress it here because the kubectl Lambda execution role uses
+        // AWS-managed Lambda and ECR policies for provider execution.
+        NagSuppressions.addResourceSuppressions(
+            kubectlLambdaRole,
+            [
+                {
+                    id: "AwsSolutions-IAM4",
+                    reason: "The kubectl Lambda execution role uses AWS-managed " +
+                        "Lambda and ECR policies.",
+                },
+            ],
+        );
+        const kubectlRole = new iam.Role(this, "KubectlRole", {
+            assumedBy: kubectlLambdaRole,
+            description: "Role assumed by CLP Helm kubectl Lambdas.",
+        });
+
+        /* eslint-disable no-new */
+        new cdk.CfnOutput(this, "KubectlLambdaRoleArn", {
+            exportName: clusterExportName(props.clusterName, "KubectlLambdaRoleArn"),
+            value: kubectlLambdaRole.roleArn,
+        });
+
+        new cdk.CfnOutput(this, "KubectlExecutionRoleArn", {
+            exportName: clusterExportName(props.clusterName, "KubectlExecutionRoleArn"),
+            value: kubectlRole.roleArn,
+        });
+        /* eslint-enable no-new */
+
+        kubectlLambdaRole.addToPolicy(new iam.PolicyStatement({
+            actions: ["eks:DescribeCluster"],
+            resources: [
+                cdk.Stack.of(this).formatArn({
+                    resource: "cluster",
+                    resourceName: props.clusterName,
+                    service: "eks",
+                }),
+            ],
+        }));
+        kubectlRole.grantAssumeRole(kubectlLambdaRole);
+
+        return {
+            kubectlRole: kubectlRole,
+        };
+    }
+
+    /* eslint-disable max-lines-per-function */
+    private suppressEksProviderNags (): void {
+        // AwsSolutions-IAM4 flags IAM users, roles, or groups that use
+        // AWS-managed policies.
+        //
+        // Suppress it here because the EKS L2 construct internally creates and
         // manages these AWS-managed service roles for EKS and CDK provider
         // resources.
         NagSuppressions.addResourceSuppressionsByPath(
             this,
             [
-                `/${this.node.path}/Cluster/KubectlHandlerRole/Resource`,
-                `/${this.node.path}/Cluster/Role/Resource`,
-                `/${this.node.path}/Cluster/NodegroupNodeGroup/NodeGroupRole` +
-                    "/Resource",
                 `/${this.node.path}/@aws-cdk--aws-eks.ClusterResourceProvider` +
                     "/OnEventHandler/ServiceRole/Resource",
                 `/${this.node.path}/@aws-cdk--aws-eks.ClusterResourceProvider` +
@@ -122,6 +346,7 @@ export class EksStack extends ClusterScopedStack {
                     "/Provider/framework-isComplete/ServiceRole/Resource",
                 `/${this.node.path}/@aws-cdk--aws-eks.ClusterResourceProvider` +
                     "/Provider/framework-onTimeout/ServiceRole/Resource",
+                `/${this.node.path}/Cluster/KubectlHandlerRole/Resource`,
                 `/${this.node.path}/@aws-cdk--aws-eks.KubectlProvider` +
                     "/Provider/framework-onEvent/ServiceRole/Resource",
             ],
@@ -146,14 +371,14 @@ export class EksStack extends ClusterScopedStack {
                     "/OnEventHandler/Resource",
                 `/${this.node.path}/@aws-cdk--aws-eks.ClusterResourceProvider` +
                     "/IsCompleteHandler/Resource",
-                `/${this.node.path}/@aws-cdk--aws-eks.KubectlProvider` +
-                    "/Handler/Resource",
                 `/${this.node.path}/@aws-cdk--aws-eks.ClusterResourceProvider` +
                     "/Provider/framework-onEvent/Resource",
                 `/${this.node.path}/@aws-cdk--aws-eks.ClusterResourceProvider` +
                     "/Provider/framework-isComplete/Resource",
                 `/${this.node.path}/@aws-cdk--aws-eks.ClusterResourceProvider` +
                     "/Provider/framework-onTimeout/Resource",
+                `/${this.node.path}/@aws-cdk--aws-eks.KubectlProvider` +
+                    "/Handler/Resource",
                 `/${this.node.path}/@aws-cdk--aws-eks.KubectlProvider` +
                     "/Provider/framework-onEvent/Resource",
             ],

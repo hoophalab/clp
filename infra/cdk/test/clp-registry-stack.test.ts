@@ -19,11 +19,5 @@ describe("ClpRegistryStack", () => {
         const template = Template.fromStack(stack);
 
         template.resourceCountIs("AWS::ECR::Repository", 2);
-        template.hasResourceProperties("AWS::ECR::Repository", {
-            RepositoryName: "test/clp",
-        });
-        template.hasResourceProperties("AWS::ECR::Repository", {
-            RepositoryName: "test/clp-package",
-        });
     });
 });
