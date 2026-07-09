@@ -37,6 +37,15 @@ export class VpcStack extends ClusterScopedStack {
             ],
         });
 
+        this.vpc.addGatewayEndpoint("S3GatewayEndpoint", {
+            service: ec2.GatewayVpcEndpointAwsService.S3,
+            subnets: [
+                {
+                    subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+                },
+            ],
+        });
+
         /* eslint-disable no-new */
         new cdk.CfnOutput(this, "PrivateSubnetIds", {
             exportName: clusterExportName(props.clusterName, "PrivateSubnetIds"),

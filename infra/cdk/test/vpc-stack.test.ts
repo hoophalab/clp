@@ -1,4 +1,7 @@
-import {Template} from "aws-cdk-lib/assertions";
+import {
+    Match,
+    Template,
+} from "aws-cdk-lib/assertions";
 import * as cdk from "aws-cdk-lib/core";
 import {
     describe,
@@ -22,5 +25,24 @@ describe("VpcStack", () => {
         const template = Template.fromStack(stack);
 
         template.resourceCountIs("AWS::EC2::VPC", 1);
+        template.resourceCountIs("AWS::EC2::VPCEndpoint", 1);
+        template.hasResourceProperties("AWS::EC2::VPCEndpoint", {
+            RouteTableIds: [
+                {Ref: Match.stringLikeRegexp("^VpcPrivateSubnet1RouteTable")},
+                {Ref: Match.stringLikeRegexp("^VpcPrivateSubnet2RouteTable")},
+                {Ref: Match.stringLikeRegexp("^VpcPrivateSubnet3RouteTable")},
+            ],
+            ServiceName: {
+                "Fn::Join": [
+                    "",
+                    [
+                        "com.amazonaws.",
+                        {Ref: "AWS::Region"},
+                        ".s3",
+                    ],
+                ],
+            },
+            VpcEndpointType: "Gateway",
+        });
     });
 });
