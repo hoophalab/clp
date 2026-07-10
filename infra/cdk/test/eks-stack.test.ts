@@ -19,7 +19,9 @@ describe("EksStack", () => {
         const stack = new EksStack(app, "TestEks", {
             clusterAdminRoleArn: "arn:aws:iam::123456789012:role/test-cluster-admin",
             clusterName: "test",
+            domainName: "cloud.yscope.com",
             env: {account: "123456789012", region: "us-east-1"},
+            envoyGatewayChartVersion: "v1.8.2",
             vpc: vpcStack.vpc,
         });
 
@@ -27,6 +29,11 @@ describe("EksStack", () => {
 
         template.resourceCountIs("Custom::AWSCDK-EKS-Cluster", 1);
         template.resourceCountIs("AWS::EKS::Addon", 1);
-        template.resourceCountIs("Custom::AWSCDK-EKS-KubernetesResource", 2);
+        template.resourceCountIs("Custom::AWSCDK-EKS-HelmChart", 1);
+        template.resourceCountIs(
+            "Custom::AWSCDK-EKS-KubernetesResource",
+            // eslint-disable-next-line no-magic-numbers
+            6,
+        );
     });
 });

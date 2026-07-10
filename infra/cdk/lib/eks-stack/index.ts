@@ -8,15 +8,18 @@ import * as cdk from "aws-cdk-lib/core";
 import {NagSuppressions} from "cdk-nag";
 import {Construct} from "constructs";
 
-import {clusterExportName} from "./cluster-exports";
+import {clusterExportName} from "../cluster-exports";
 import {
     ClusterScopedStack,
     ClusterScopedStackProps,
-} from "./cluster-scoped-stack";
+} from "../cluster-scoped-stack";
+import {addGateway} from "./gateway";
 
 
 export interface EksStackProps extends ClusterScopedStackProps {
     clusterAdminRoleArn: string;
+    domainName: string;
+    envoyGatewayChartVersion: string;
     vpc: ec2.IVpc;
 }
 
@@ -34,6 +37,12 @@ export class EksStack extends ClusterScopedStack {
         new cdk.CfnOutput(this, "KubectlRoleArn", {
             exportName: clusterExportName(props.clusterName, "KubectlRoleArn"),
             value: adminRole.roleArn,
+        });
+
+        // eslint-disable-next-line no-new
+        new cdk.CfnOutput(this, "DomainName", {
+            exportName: clusterExportName(props.clusterName, "DomainName"),
+            value: props.domainName,
         });
 
         const controlPlaneLogGroup = new logs.LogGroup(this, "ControlPlaneLogGroup", {
@@ -149,6 +158,13 @@ export class EksStack extends ClusterScopedStack {
         this.cluster.awsAuth.addMastersRole(kubectlRole);
         const ebsCsiDriverAddon = this.addEbsCsiDriverAddon();
         this.addGp3StorageClass(ebsCsiDriverAddon);
+        addGateway({
+            cluster: this.cluster,
+            clusterName: props.clusterName,
+            domainName: props.domainName,
+            envoyGatewayChartVersion: props.envoyGatewayChartVersion,
+            scope: this,
+        });
 
         // eslint-disable-next-line no-warning-comments
         // TODO: Switch to ARM instances once things stabilize.

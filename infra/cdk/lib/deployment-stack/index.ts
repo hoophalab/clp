@@ -8,11 +8,12 @@ import * as cdk from "aws-cdk-lib/core";
 import {NagSuppressions} from "cdk-nag";
 import {Construct} from "constructs";
 
-import {clusterExportName} from "./cluster-exports";
+import {clusterExportName} from "../cluster-exports";
 import {
     ClusterScopedStack,
     ClusterScopedStackProps,
-} from "./cluster-scoped-stack";
+} from "../cluster-scoped-stack";
+import {addGatewayResources} from "./gateway";
 
 
 const HELM_DEPLOYMENT_TIMEOUT_MINUTES = 10;
@@ -50,6 +51,11 @@ export class DeploymentStack extends ClusterScopedStack {
         const packageRepository = cdk.Fn.importValue(
             clusterExportName(props.clusterName, "ClpRegistryPackageRepositoryUri"),
         );
+        const domainName = cdk.Fn.importValue(
+            clusterExportName(props.clusterName, "DomainName"),
+        );
+        const hostname =
+            `${props.deploymentId}.${props.clusterName}.${domainName}`;
         const namespace = `clp-${props.deploymentId}`;
         const storageBucket = this.createStorageBucket();
         const serviceAccountRole = this.createServiceAccountRole(props);
@@ -128,6 +134,14 @@ export class DeploymentStack extends ClusterScopedStack {
         });
 
         helmChart.node.addDependency(namespaceManifest);
+        addGatewayResources({
+            cluster: cluster,
+            helmChart: helmChart,
+            hostname: hostname,
+            namespace: namespace,
+            namespaceManifest: namespaceManifest,
+            scope: this,
+        });
         this.suppressHelmKubectlProviderNags(cluster);
     }
     /* eslint-enable max-lines-per-function */

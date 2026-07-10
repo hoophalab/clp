@@ -7,13 +7,17 @@ import {
     createApp,
     getClusterAdminRoleArn,
     getClusterName,
+    getDomainName,
     getEnv,
+    getEnvoyGatewayChartVersion,
 } from "./app-context";
 
 
 const app = createApp();
 const clusterAdminRoleArn = getClusterAdminRoleArn(app);
 const clusterName = getClusterName(app);
+const domainName = getDomainName(app);
+const envoyGatewayChartVersion = getEnvoyGatewayChartVersion(app);
 const env = getEnv();
 
 const vpcStack = new VpcStack(app, "Vpc", {clusterName, env});
@@ -25,6 +29,8 @@ new ClpRegistryStack(app, "ClpRegistry", {clusterName, env});
 new EksStack(app, "Eks", {
     clusterAdminRoleArn: clusterAdminRoleArn,
     clusterName: clusterName,
+    domainName: domainName,
     env: env,
+    envoyGatewayChartVersion: envoyGatewayChartVersion,
     vpc: vpcStack.vpc,
 });

@@ -65,12 +65,14 @@ jobs:
           pnpm run cdk:cluster synth
           -c com.yscope.cloud/clusterName=test
           -c com.yscope.cloud/clusterAdminRoleArn=arn:aws:iam::123456789012:role/test-cluster-admin
+          -c com.yscope.cloud/domainName=cloud.yscope.com
 
       - name: "Synthesize deployment stack"
         working-directory: "infra/cdk"
         run: >-
           pnpm run cdk:deployment synth
           -c com.yscope.cloud/clusterName=test
+          -c com.yscope.cloud/domainName=cloud.yscope.com
           -c com.yscope.cloud/deploymentId=0123456789abcdef
           -c com.yscope.cloud/clpChart=clp
           -c com.yscope.cloud/clpChartVersion=0.3.0

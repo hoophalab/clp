@@ -3,6 +3,7 @@ import {AwsSolutionsChecks} from "cdk-nag";
 
 
 const MAX_CLP_DEPLOYMENT_ID_LENGTH = 59;
+const DEFAULT_ENVOY_GATEWAY_CHART_VERSION = "v1.8.2";
 
 const KUBERNETES_NAMESPACE_LABEL_PATTERN = (
     /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/
@@ -156,4 +157,31 @@ export const getClpChartConfig = function (
                 "(-c com.yscope.cloud/clpChartVersion=1.2.3)."
             ),
     };
+};
+
+/**
+ * Gets the public base domain from CDK context.
+ *
+ * @param app CDK app.
+ * @return Public base domain.
+ */
+export const getDomainName = function (app: cdk.App): string {
+    return app.node.tryGetContext("com.yscope.cloud/domainName") as string | undefined ??
+        panic(
+            "Missing required context variable: 'com.yscope.cloud/domainName'. " +
+            "Pass it via cdk.json or the CLI " +
+            "(-c com.yscope.cloud/domainName=cloud.yscope.com)."
+        );
+};
+
+/**
+ * Gets the Envoy Gateway Helm chart version from CDK context.
+ *
+ * @param app CDK app.
+ * @return Envoy Gateway Helm chart version.
+ */
+export const getEnvoyGatewayChartVersion = function (app: cdk.App): string {
+    return app.node.tryGetContext(
+        "com.yscope.cloud/envoyGatewayChartVersion",
+    ) as string | undefined ?? DEFAULT_ENVOY_GATEWAY_CHART_VERSION;
 };

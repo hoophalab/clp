@@ -26,6 +26,8 @@ describe("DeploymentStack", () => {
         template.resourceCountIs("AWS::IAM::Role", 2);
         template.resourceCountIs("AWS::IAM::Policy", 1);
         template.resourceCountIs("Custom::AWSCDK-EKS-HelmChart", 1);
-        template.resourceCountIs("Custom::AWSCDK-EKS-KubernetesResource", 1);
+        // eslint-disable-next-line no-magic-numbers
+        template.resourceCountIs("Custom::AWSCDK-EKS-KubernetesPatch", 5);
+        template.resourceCountIs("Custom::AWSCDK-EKS-KubernetesResource", 2);
     });
 });
