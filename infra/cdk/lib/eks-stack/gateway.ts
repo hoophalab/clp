@@ -14,6 +14,10 @@ const ENVOY_GATEWAY_CONTROLLER_NAME = "gateway.envoyproxy.io/gatewayclass-contro
 const ENVOY_GATEWAY_RELEASE_NAME = "envoy-gateway";
 const ENVOY_GATEWAY_CLASS_NAME = "envoy-gateway";
 
+export interface GatewayResources {
+    chart: eks.HelmChart;
+}
+
 /**
  * Adds Envoy Gateway resources to the EKS cluster.
  *
@@ -23,6 +27,7 @@ const ENVOY_GATEWAY_CLASS_NAME = "envoy-gateway";
  * @param config.domainName Public base domain.
  * @param config.envoyGatewayChartVersion Envoy Gateway Helm chart version.
  * @param config.scope Construct scope.
+ * @return Installed gateway resources.
  */
 export const addGateway = function (
     {
@@ -38,7 +43,7 @@ export const addGateway = function (
         envoyGatewayChartVersion: string;
         scope: Construct;
     },
-): void {
+): GatewayResources {
     const envoyGatewayNamespace = cluster.addManifest("EnvoyGatewayNamespace", {
         apiVersion: "v1",
         kind: "Namespace",
@@ -108,5 +113,7 @@ export const addGateway = function (
 
     gateway.node.addDependency(gatewayClassManifest);
     gateway.node.addDependency(gatewayNamespace);
+
+    return {chart: helmChart};
 };
 /* eslint-enable max-lines-per-function */

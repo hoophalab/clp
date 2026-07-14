@@ -66,6 +66,7 @@ jobs:
           -c com.yscope.cloud/clusterName=test
           -c com.yscope.cloud/clusterAdminRoleArn=arn:aws:iam::123456789012:role/test-cluster-admin
           -c com.yscope.cloud/domainName=cloud.yscope.com
+          -c com.yscope.cloud/cloudflareApiTokenParameterName=/cloud/test/cloudflare-api-token
 
       - name: "Synthesize deployment stack"
         working-directory: "infra/cdk"

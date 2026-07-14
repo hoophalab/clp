@@ -13,13 +13,16 @@ import {
     ClusterScopedStack,
     ClusterScopedStackProps,
 } from "../cluster-scoped-stack";
+import {addExternalSecrets} from "./external-secrets";
 import {addGateway} from "./gateway";
 
 
 export interface EksStackProps extends ClusterScopedStackProps {
+    cloudflareApiTokenParameterName: string;
     clusterAdminRoleArn: string;
     domainName: string;
     envoyGatewayChartVersion: string;
+    externalSecretsChartVersion: string;
     vpc: ec2.IVpc;
 }
 
@@ -156,15 +159,9 @@ export class EksStack extends ClusterScopedStack {
 
         this.cluster.node.addDependency(controlPlaneLogGroup);
         this.cluster.awsAuth.addMastersRole(kubectlRole);
+
         const ebsCsiDriverAddon = this.addEbsCsiDriverAddon();
         this.addGp3StorageClass(ebsCsiDriverAddon);
-        addGateway({
-            cluster: this.cluster,
-            clusterName: props.clusterName,
-            domainName: props.domainName,
-            envoyGatewayChartVersion: props.envoyGatewayChartVersion,
-            scope: this,
-        });
 
         // eslint-disable-next-line no-warning-comments
         // TODO: Switch to ARM instances once things stabilize.
@@ -195,6 +192,26 @@ export class EksStack extends ClusterScopedStack {
                 },
             ],
         );
+
+
+        const gateway = addGateway({
+            cluster: this.cluster,
+            clusterName: props.clusterName,
+            domainName: props.domainName,
+            envoyGatewayChartVersion: props.envoyGatewayChartVersion,
+            scope: this,
+        });
+
+        gateway.chart.node.addDependency(nodeGroup);
+
+        const externalSecrets = addExternalSecrets({
+            chartVersion: props.externalSecretsChartVersion,
+            cluster: this.cluster,
+            parameterName: props.cloudflareApiTokenParameterName,
+            scope: this,
+        });
+
+        externalSecrets.chart.node.addDependency(nodeGroup);
 
         this.suppressEksProviderNags();
     }

@@ -3,6 +3,7 @@ import {AwsSolutionsChecks} from "cdk-nag";
 
 
 const MAX_CLP_DEPLOYMENT_ID_LENGTH = 59;
+const DEFAULT_EXTERNAL_SECRETS_CHART_VERSION = "2.7.0";
 const DEFAULT_ENVOY_GATEWAY_CHART_VERSION = "v1.8.2";
 
 const KUBERNETES_NAMESPACE_LABEL_PATTERN = (
@@ -172,6 +173,42 @@ export const getDomainName = function (app: cdk.App): string {
             "Pass it via cdk.json or the CLI " +
             "(-c com.yscope.cloud/domainName=cloud.yscope.com)."
         );
+};
+
+/**
+ * Gets the SSM SecureString parameter containing the Cloudflare API token.
+ *
+ * The parameter value must be the token itself.
+ *
+ * @param app CDK app.
+ * @return SSM parameter name.
+ */
+export const getCloudflareApiTokenParameterName = function (app: cdk.App): string {
+    const parameterName: unknown = app.node.tryGetContext(
+        "com.yscope.cloud/cloudflareApiTokenParameterName",
+    );
+
+    if ("string" !== typeof parameterName || 0 === parameterName.length) {
+        return panic(
+            "Missing or invalid context variable: " +
+            "'com.yscope.cloud/cloudflareApiTokenParameterName'. Pass a " +
+            "non-empty SSM parameter name via cdk.json or the CLI.",
+        );
+    }
+
+    return parameterName;
+};
+
+/**
+ * Gets the External Secrets Operator Helm chart version from CDK context.
+ *
+ * @param app CDK app.
+ * @return External Secrets Operator Helm chart version.
+ */
+export const getExternalSecretsChartVersion = function (app: cdk.App): string {
+    return app.node.tryGetContext(
+        "com.yscope.cloud/externalSecretsChartVersion",
+    ) as string | undefined ?? DEFAULT_EXTERNAL_SECRETS_CHART_VERSION;
 };
 
 /**
