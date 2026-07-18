@@ -22,11 +22,13 @@ describe("EksStack", () => {
         });
         const stack = new EksStack(app, "TestEks", {
             cloudflareApiTokenParameterName: "/cloud/test/cloudflare-api-token",
+            cloudflareZoneNames: ["yscope.com"],
             clusterAdminRoleArn: "arn:aws:iam::123456789012:role/test-cluster-admin",
             clusterName: "test",
             domainName: "cloud.yscope.com",
             env: {account: "123456789012", region: "us-east-1"},
             envoyGatewayChartVersion: "v1.8.2",
+            externalDnsChartVersion: "1.21.1",
             externalSecretsChartVersion: "2.7.0",
             vpc: vpcStack.vpc,
         });
@@ -35,12 +37,20 @@ describe("EksStack", () => {
 
         template.resourceCountIs("Custom::AWSCDK-EKS-Cluster", 1);
         template.resourceCountIs("AWS::EKS::Addon", 1);
-        template.resourceCountIs("Custom::AWSCDK-EKS-HelmChart", 2);
-        template.resourceCountIs(
-            "Custom::AWSCDK-EKS-KubernetesResource",
-            // eslint-disable-next-line no-magic-numbers
-            8,
-        );
+        template.hasResourceProperties("Custom::AWSCDK-EKS-HelmChart", {
+            Chart: "external-dns",
+            Values: Match.serializedJson(Match.objectLike({
+                extraArgs: Match.objectLike({
+                    "txt-wildcard-replacement": "wildcard",
+                }),
+                provider: {name: "cloudflare"},
+            })),
+        });
+        template.hasResourceProperties("Custom::AWSCDK-EKS-KubernetesResource", {
+            Manifest: Match.serializedJson(Match.arrayWith([
+                Match.objectLike({kind: "EnvoyProxy"}),
+            ])),
+        });
         template.hasResourceProperties("AWS::IAM::Policy", {
             PolicyDocument: {
                 Statement: Match.arrayWith([

@@ -6,21 +6,25 @@ import {VpcStack} from "../lib/vpc-stack";
 import {
     createApp,
     getCloudflareApiTokenParameterName,
+    getCloudflareZoneNames,
     getClusterAdminRoleArn,
     getClusterName,
     getDomainName,
     getEnv,
     getEnvoyGatewayChartVersion,
+    getExternalDnsChartVersion,
     getExternalSecretsChartVersion,
 } from "./app-context";
 
 
 const app = createApp();
 const cloudflareApiTokenParameterName = getCloudflareApiTokenParameterName(app);
+const cloudflareZoneNames = getCloudflareZoneNames(app);
 const clusterAdminRoleArn = getClusterAdminRoleArn(app);
 const clusterName = getClusterName(app);
 const domainName = getDomainName(app);
 const envoyGatewayChartVersion = getEnvoyGatewayChartVersion(app);
+const externalDnsChartVersion = getExternalDnsChartVersion(app);
 const externalSecretsChartVersion = getExternalSecretsChartVersion(app);
 const env = getEnv();
 
@@ -32,11 +36,13 @@ new ClpRegistryStack(app, "ClpRegistry", {clusterName, env});
 // eslint-disable-next-line no-new
 new EksStack(app, "Eks", {
     cloudflareApiTokenParameterName: cloudflareApiTokenParameterName,
+    cloudflareZoneNames: cloudflareZoneNames,
     clusterAdminRoleArn: clusterAdminRoleArn,
     clusterName: clusterName,
     domainName: domainName,
     env: env,
     envoyGatewayChartVersion: envoyGatewayChartVersion,
+    externalDnsChartVersion: externalDnsChartVersion,
     externalSecretsChartVersion: externalSecretsChartVersion,
     vpc: vpcStack.vpc,
 });

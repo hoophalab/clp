@@ -3,6 +3,7 @@ import {AwsSolutionsChecks} from "cdk-nag";
 
 
 const MAX_CLP_DEPLOYMENT_ID_LENGTH = 59;
+const DEFAULT_EXTERNAL_DNS_CHART_VERSION = "1.21.1";
 const DEFAULT_EXTERNAL_SECRETS_CHART_VERSION = "2.7.0";
 const DEFAULT_ENVOY_GATEWAY_CHART_VERSION = "v1.8.2";
 
@@ -176,6 +177,51 @@ export const getDomainName = function (app: cdk.App): string {
 };
 
 /**
+ * Gets the authoritative Cloudflare zones ExternalDNS may manage.
+ *
+ * @param app CDK app.
+ * @return Authoritative Cloudflare zone names.
+ */
+export const getCloudflareZoneNames = function (app: cdk.App): string[] {
+    const zoneNames: unknown = app.node.tryGetContext(
+        "com.yscope.cloud/cloudflareZoneNames",
+    );
+    const untrimmedZoneNames: unknown = (
+        "string" === typeof zoneNames ?
+            zoneNames.split(",") :
+            zoneNames
+    );
+
+    if (
+        false === Array.isArray(untrimmedZoneNames) ||
+        false === untrimmedZoneNames.every(
+            (zoneName: unknown): zoneName is string => "string" === typeof zoneName,
+        )
+    ) {
+        return panic(
+            "Missing or invalid context variable: " +
+            "'com.yscope.cloud/cloudflareZoneNames'. Pass a comma-separated list " +
+            "via the CLI (-c com.yscope.cloud/cloudflareZoneNames=yscope.com).",
+        );
+    }
+    const parsedZoneNames = untrimmedZoneNames.map(
+        (zoneName) => zoneName.trim(),
+    );
+
+    if (0 >= parsedZoneNames.length || !parsedZoneNames.every(Boolean)) {
+        return panic(
+            "Invalid context variable: " +
+            "'com.yscope.cloud/cloudflareZoneNames'. Expected a non-empty comma-separated " +
+            `list of zone names but got: ${JSON.stringify(zoneNames)}. ` +
+            "Pass a comma-separated list via the CLI " +
+            "(-c com.yscope.cloud/cloudflareZoneNames=yscope.com).",
+        );
+    }
+
+    return parsedZoneNames;
+};
+
+/**
  * Gets the SSM SecureString parameter containing the Cloudflare API token.
  *
  * The parameter value must be the token itself.
@@ -197,6 +243,18 @@ export const getCloudflareApiTokenParameterName = function (app: cdk.App): strin
     }
 
     return parameterName;
+};
+
+/**
+ * Gets the ExternalDNS Helm chart version from CDK context.
+ *
+ * @param app CDK app.
+ * @return ExternalDNS Helm chart version.
+ */
+export const getExternalDnsChartVersion = function (app: cdk.App): string {
+    return app.node.tryGetContext(
+        "com.yscope.cloud/externalDnsChartVersion",
+    ) as string | undefined ?? DEFAULT_EXTERNAL_DNS_CHART_VERSION;
 };
 
 /**

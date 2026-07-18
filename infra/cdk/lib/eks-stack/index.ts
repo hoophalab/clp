@@ -13,15 +13,24 @@ import {
     ClusterScopedStack,
     ClusterScopedStackProps,
 } from "../cluster-scoped-stack";
+import {GATEWAY_SYSTEM_NAMESPACE} from "../gateway-constants";
+import {addExternalDns} from "./external-dns";
 import {addExternalSecrets} from "./external-secrets";
-import {addGateway} from "./gateway";
+import {
+    addGateway,
+    CLOUDFLARE_API_TOKEN_SECRET_KEY,
+    CLOUDFLARE_API_TOKEN_SECRET_NAME,
+    ENVOY_GATEWAY_SYSTEM_NAMESPACE,
+} from "./gateway";
 
 
 export interface EksStackProps extends ClusterScopedStackProps {
     cloudflareApiTokenParameterName: string;
+    cloudflareZoneNames: string[];
     clusterAdminRoleArn: string;
     domainName: string;
     envoyGatewayChartVersion: string;
+    externalDnsChartVersion: string;
     externalSecretsChartVersion: string;
     vpc: ec2.IVpc;
 }
@@ -194,16 +203,6 @@ export class EksStack extends ClusterScopedStack {
         );
 
 
-        const gateway = addGateway({
-            cluster: this.cluster,
-            clusterName: props.clusterName,
-            domainName: props.domainName,
-            envoyGatewayChartVersion: props.envoyGatewayChartVersion,
-            scope: this,
-        });
-
-        gateway.chart.node.addDependency(nodeGroup);
-
         const externalSecrets = addExternalSecrets({
             chartVersion: props.externalSecretsChartVersion,
             cluster: this.cluster,
@@ -212,6 +211,35 @@ export class EksStack extends ClusterScopedStack {
         });
 
         externalSecrets.chart.node.addDependency(nodeGroup);
+
+        const externalDns = addExternalDns({
+            chartVersion: props.externalDnsChartVersion,
+            cluster: this.cluster,
+            clusterName: props.clusterName,
+            domainFilters: props.cloudflareZoneNames,
+            labelFilter: `gateway.envoyproxy.io/owning-gateway-namespace=${
+                GATEWAY_SYSTEM_NAMESPACE
+            }`,
+            scope: this,
+            secretKey: CLOUDFLARE_API_TOKEN_SECRET_KEY,
+            secretName: CLOUDFLARE_API_TOKEN_SECRET_NAME,
+            sourceNamespace: ENVOY_GATEWAY_SYSTEM_NAMESPACE,
+        });
+
+        externalDns.chart.node.addDependency(nodeGroup);
+
+        const gateway = addGateway({
+            cloudflareApiTokenParameterName: props.cloudflareApiTokenParameterName,
+            cluster: this.cluster,
+            clusterName: props.clusterName,
+            domainName: props.domainName,
+            envoyGatewayChartVersion: props.envoyGatewayChartVersion,
+            externalDns: externalDns,
+            externalSecrets: externalSecrets,
+            scope: this,
+        });
+
+        gateway.chart.node.addDependency(nodeGroup);
 
         this.suppressEksProviderNags();
     }
