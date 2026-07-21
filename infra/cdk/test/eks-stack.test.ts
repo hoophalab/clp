@@ -21,6 +21,7 @@ describe("EksStack", () => {
             env: {account: "123456789012", region: "us-east-1"},
         });
         const stack = new EksStack(app, "TestEks", {
+            certManagerChartVersion: "v1.21.0",
             cloudflareApiTokenParameterName: "/cloud/test/cloudflare-api-token",
             cloudflareZoneNames: ["yscope.com"],
             clusterAdminRoleArn: "arn:aws:iam::123456789012:role/test-cluster-admin",
@@ -106,7 +107,7 @@ describe("EksStack", () => {
                             {
                                 namespaces: [
                                     "external-dns",
-                                    "cert-manager",
+                                    "gateway-system",
                                 ],
                             },
                         ],

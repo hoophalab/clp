@@ -14,6 +14,7 @@ import {
     ClusterScopedStackProps,
 } from "../cluster-scoped-stack";
 import {GATEWAY_SYSTEM_NAMESPACE} from "../gateway-constants";
+import {addCertManager} from "./cert-manager";
 import {addExternalDns} from "./external-dns";
 import {addExternalSecrets} from "./external-secrets";
 import {
@@ -25,6 +26,7 @@ import {
 
 
 export interface EksStackProps extends ClusterScopedStackProps {
+    certManagerChartVersion: string;
     cloudflareApiTokenParameterName: string;
     cloudflareZoneNames: string[];
     clusterAdminRoleArn: string;
@@ -228,7 +230,16 @@ export class EksStack extends ClusterScopedStack {
 
         externalDns.chart.node.addDependency(nodeGroup);
 
+        const certManager = addCertManager({
+            chartVersion: props.certManagerChartVersion,
+            cluster: this.cluster,
+            scope: this,
+        });
+
+        certManager.chart.node.addDependency(nodeGroup);
+
         const gateway = addGateway({
+            certManager: certManager,
             cloudflareApiTokenParameterName: props.cloudflareApiTokenParameterName,
             cluster: this.cluster,
             clusterName: props.clusterName,

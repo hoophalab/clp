@@ -3,6 +3,7 @@ import {AwsSolutionsChecks} from "cdk-nag";
 
 
 const MAX_CLP_DEPLOYMENT_ID_LENGTH = 59;
+const DEFAULT_CERT_MANAGER_CHART_VERSION = "v1.21.0";
 const DEFAULT_EXTERNAL_DNS_CHART_VERSION = "1.21.1";
 const DEFAULT_EXTERNAL_SECRETS_CHART_VERSION = "2.7.0";
 const DEFAULT_ENVOY_GATEWAY_CHART_VERSION = "v1.8.2";
@@ -243,6 +244,18 @@ export const getCloudflareApiTokenParameterName = function (app: cdk.App): strin
     }
 
     return parameterName;
+};
+
+/**
+ * Gets the cert-manager Helm chart version from CDK context.
+ *
+ * @param app CDK app.
+ * @return cert-manager Helm chart version.
+ */
+export const getCertManagerChartVersion = function (app: cdk.App): string {
+    return app.node.tryGetContext(
+        "com.yscope.cloud/certManagerChartVersion",
+    ) as string | undefined ?? DEFAULT_CERT_MANAGER_CHART_VERSION;
 };
 
 /**

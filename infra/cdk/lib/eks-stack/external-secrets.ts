@@ -3,6 +3,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as cdk from "aws-cdk-lib/core";
 import {Construct} from "constructs";
 
+import {GATEWAY_SYSTEM_NAMESPACE} from "../gateway-constants";
 import {EXTERNAL_DNS_NAMESPACE} from "./external-dns";
 
 
@@ -112,7 +113,7 @@ export const addExternalSecrets = function (
                 {
                     namespaces: [
                         EXTERNAL_DNS_NAMESPACE,
-                        "cert-manager",
+                        GATEWAY_SYSTEM_NAMESPACE,
                     ],
                 },
             ],
