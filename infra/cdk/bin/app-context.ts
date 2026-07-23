@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import * as cdk from "aws-cdk-lib/core";
 import {AwsSolutionsChecks} from "cdk-nag";
 
@@ -223,6 +224,72 @@ export const getCloudflareZoneNames = function (app: cdk.App): string[] {
 };
 
 /**
+ * Gets the Auth0 tenant domain used as the OIDC issuer.
+ *
+ * @param app CDK app.
+ * @return Auth0 tenant domain without a scheme or path.
+ */
+export const getAuth0Domain = function (app: cdk.App): string {
+    const domain: unknown = app.node.tryGetContext(
+        "com.yscope.cloud/auth0Domain",
+    );
+
+    if ("string" !== typeof domain || 0 === domain.length) {
+        return panic(
+            "Missing or invalid context variable: " +
+            "'com.yscope.cloud/auth0Domain'. Pass the Auth0 tenant domain " +
+            "without a scheme or path (for example, tenant.us.auth0.com).",
+        );
+    }
+
+    return domain;
+};
+
+/**
+ * Gets the public Auth0 application client ID.
+ *
+ * @param app CDK app.
+ * @return Auth0 application client ID.
+ */
+export const getAuth0ClientId = function (app: cdk.App): string {
+    const clientId: unknown = app.node.tryGetContext(
+        "com.yscope.cloud/auth0ClientId",
+    );
+
+    if ("string" !== typeof clientId || 0 === clientId.length) {
+        return panic(
+            "Missing or invalid context variable: " +
+            "'com.yscope.cloud/auth0ClientId'. Pass the Auth0 application " +
+            "client ID via cdk.json or the CLI.",
+        );
+    }
+
+    return clientId;
+};
+
+/**
+ * Gets the SSM SecureString parameter containing the Auth0 client secret.
+ *
+ * @param app CDK app.
+ * @return SSM parameter name.
+ */
+export const getAuth0ClientSecretParameterName = function (app: cdk.App): string {
+    const parameterName: unknown = app.node.tryGetContext(
+        "com.yscope.cloud/auth0ClientSecretParameterName",
+    );
+
+    if ("string" !== typeof parameterName || 0 === parameterName.length) {
+        return panic(
+            "Missing or invalid context variable: " +
+            "'com.yscope.cloud/auth0ClientSecretParameterName'. Pass a " +
+            "non-empty SSM SecureString parameter name via cdk.json or the CLI.",
+        );
+    }
+
+    return parameterName;
+};
+
+/**
  * Gets the SSM SecureString parameter containing the Cloudflare API token.
  *
  * The parameter value must be the token itself.
@@ -293,3 +360,4 @@ export const getEnvoyGatewayChartVersion = function (app: cdk.App): string {
         "com.yscope.cloud/envoyGatewayChartVersion",
     ) as string | undefined ?? DEFAULT_ENVOY_GATEWAY_CHART_VERSION;
 };
+/* eslint-enable max-lines */

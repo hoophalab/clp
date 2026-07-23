@@ -26,6 +26,9 @@ import {
 
 
 export interface EksStackProps extends ClusterScopedStackProps {
+    auth0ClientId: string;
+    auth0ClientSecretParameterName: string;
+    auth0Domain: string;
     certManagerChartVersion: string;
     cloudflareApiTokenParameterName: string;
     cloudflareZoneNames: string[];
@@ -208,7 +211,10 @@ export class EksStack extends ClusterScopedStack {
         const externalSecrets = addExternalSecrets({
             chartVersion: props.externalSecretsChartVersion,
             cluster: this.cluster,
-            parameterName: props.cloudflareApiTokenParameterName,
+            parameterNames: [
+                props.cloudflareApiTokenParameterName,
+                props.auth0ClientSecretParameterName,
+            ],
             scope: this,
         });
 
@@ -239,6 +245,9 @@ export class EksStack extends ClusterScopedStack {
         certManager.chart.node.addDependency(nodeGroup);
 
         const gateway = addGateway({
+            auth0ClientId: props.auth0ClientId,
+            auth0ClientSecretParameterName: props.auth0ClientSecretParameterName,
+            auth0Domain: props.auth0Domain,
             certManager: certManager,
             cloudflareApiTokenParameterName: props.cloudflareApiTokenParameterName,
             cluster: this.cluster,

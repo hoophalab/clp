@@ -21,6 +21,9 @@ describe("EksStack", () => {
             env: {account: "123456789012", region: "us-east-1"},
         });
         const stack = new EksStack(app, "TestEks", {
+            auth0ClientId: "test-client-id",
+            auth0ClientSecretParameterName: "/cloud/test/auth0-client-secret",
+            auth0Domain: "test.us.auth0.com",
             certManagerChartVersion: "v1.21.0",
             cloudflareApiTokenParameterName: "/cloud/test/cloudflare-api-token",
             cloudflareZoneNames: ["yscope.com"],
@@ -58,17 +61,30 @@ describe("EksStack", () => {
                     Match.objectLike({
                         Action: "ssm:GetParameter",
                         Effect: "Allow",
-                        Resource: {
-                            "Fn::Join": [
-                                "",
-                                [
-                                    "arn:",
-                                    {Ref: "AWS::Partition"},
-                                    ":ssm:us-east-1:123456789012:" +
-                                    "parameter/cloud/test/cloudflare-api-token",
+                        Resource: Match.arrayWith([
+                            {
+                                "Fn::Join": [
+                                    "",
+                                    [
+                                        "arn:",
+                                        {Ref: "AWS::Partition"},
+                                        ":ssm:us-east-1:123456789012:" +
+                                        "parameter/cloud/test/cloudflare-api-token",
+                                    ],
                                 ],
-                            ],
-                        },
+                            },
+                            {
+                                "Fn::Join": [
+                                    "",
+                                    [
+                                        "arn:",
+                                        {Ref: "AWS::Partition"},
+                                        ":ssm:us-east-1:123456789012:" +
+                                        "parameter/cloud/test/auth0-client-secret",
+                                    ],
+                                ],
+                            },
+                        ]),
                     }),
                 ]),
             },

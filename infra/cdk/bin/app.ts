@@ -5,6 +5,9 @@ import {EksStack} from "../lib/eks-stack";
 import {VpcStack} from "../lib/vpc-stack";
 import {
     createApp,
+    getAuth0ClientId,
+    getAuth0ClientSecretParameterName,
+    getAuth0Domain,
     getCertManagerChartVersion,
     getCloudflareApiTokenParameterName,
     getCloudflareZoneNames,
@@ -19,6 +22,9 @@ import {
 
 
 const app = createApp();
+const auth0ClientId = getAuth0ClientId(app);
+const auth0ClientSecretParameterName = getAuth0ClientSecretParameterName(app);
+const auth0Domain = getAuth0Domain(app);
 const certManagerChartVersion = getCertManagerChartVersion(app);
 const cloudflareApiTokenParameterName = getCloudflareApiTokenParameterName(app);
 const cloudflareZoneNames = getCloudflareZoneNames(app);
@@ -37,6 +43,9 @@ new ClpRegistryStack(app, "ClpRegistry", {clusterName, env});
 
 // eslint-disable-next-line no-new
 new EksStack(app, "Eks", {
+    auth0ClientId: auth0ClientId,
+    auth0ClientSecretParameterName: auth0ClientSecretParameterName,
+    auth0Domain: auth0Domain,
     certManagerChartVersion: certManagerChartVersion,
     cloudflareApiTokenParameterName: cloudflareApiTokenParameterName,
     cloudflareZoneNames: cloudflareZoneNames,
