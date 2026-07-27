@@ -8,7 +8,6 @@ const DEFAULT_CERT_MANAGER_CHART_VERSION = "v1.21.0";
 const DEFAULT_EXTERNAL_DNS_CHART_VERSION = "1.21.1";
 const DEFAULT_EXTERNAL_SECRETS_CHART_VERSION = "2.7.0";
 const DEFAULT_ENVOY_GATEWAY_CHART_VERSION = "v1.8.2";
-
 const KUBERNETES_NAMESPACE_LABEL_PATTERN = (
     /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/
 );
@@ -82,6 +81,77 @@ export const getEnv = function (): cdk.Environment {
         region: process.env.CDK_DEFAULT_REGION ??
             panic("CDK_DEFAULT_REGION is not set. Please verify login using aws cli"),
     };
+};
+
+/**
+ * Gets the EKS managed node group AMI type from CDK context.
+ *
+ * @param app CDK app.
+ * @return EKS managed node group AMI type.
+ */
+export const getNodeGroupAmiType = function (
+    app: cdk.App,
+): string {
+    const amiType: unknown = app.node.tryGetContext(
+        "com.yscope.cloud/nodeGroupAmiType",
+    ) ?? "AL2023_ARM_64_STANDARD";
+
+    if ("string" !== typeof amiType || 0 === amiType.length) {
+        return panic(
+            "Invalid context variable: " +
+            "'com.yscope.cloud/nodeGroupAmiType'. Pass a non-empty EKS managed " +
+            "node group AMI type (for example, AL2023_ARM_64_STANDARD).",
+        );
+    }
+
+    return amiType;
+};
+
+/**
+ * Gets the EKS managed node group instance type from CDK context.
+ *
+ * @param app CDK app.
+ * @return EC2 instance type.
+ */
+export const getNodeGroupInstanceType = function (app: cdk.App): string {
+    const instanceType: unknown = app.node.tryGetContext(
+        "com.yscope.cloud/nodeGroupInstanceType",
+    ) ?? "c6g.xlarge";
+
+    if ("string" !== typeof instanceType || 0 === instanceType.length) {
+        return panic(
+            "Invalid context variable: " +
+            "'com.yscope.cloud/nodeGroupInstanceType'. Pass a non-empty EC2 " +
+            "instance type (for example, c6g.xlarge).",
+        );
+    }
+
+    return instanceType;
+};
+
+/**
+ * Gets the EKS managed node group desired size from CDK context.
+ *
+ * @param app CDK app.
+ * @return Desired number of nodes.
+ */
+export const getNodeGroupDesiredSize = function (app: cdk.App): number {
+    const contextValue: unknown = app.node.tryGetContext(
+        "com.yscope.cloud/nodeGroupDesiredSize",
+    ) ?? 2;
+    const desiredSize = Number(contextValue);
+
+    if (
+        false === Number.isInteger(desiredSize) ||
+        0 > desiredSize
+    ) {
+        return panic(
+            "Invalid context variable: " +
+            "'com.yscope.cloud/nodeGroupDesiredSize'. Pass a non-negative integer.",
+        );
+    }
+
+    return desiredSize;
 };
 
 /**

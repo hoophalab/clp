@@ -18,6 +18,9 @@ import {
     getEnvoyGatewayChartVersion,
     getExternalDnsChartVersion,
     getExternalSecretsChartVersion,
+    getNodeGroupAmiType,
+    getNodeGroupDesiredSize,
+    getNodeGroupInstanceType,
 } from "./app-context";
 
 
@@ -34,6 +37,9 @@ const domainName = getDomainName(app);
 const envoyGatewayChartVersion = getEnvoyGatewayChartVersion(app);
 const externalDnsChartVersion = getExternalDnsChartVersion(app);
 const externalSecretsChartVersion = getExternalSecretsChartVersion(app);
+const nodeGroupAmiType = getNodeGroupAmiType(app);
+const nodeGroupDesiredSize = getNodeGroupDesiredSize(app);
+const nodeGroupInstanceType = getNodeGroupInstanceType(app);
 const env = getEnv();
 
 const vpcStack = new VpcStack(app, "Vpc", {clusterName, env});
@@ -56,5 +62,8 @@ new EksStack(app, "Eks", {
     envoyGatewayChartVersion: envoyGatewayChartVersion,
     externalDnsChartVersion: externalDnsChartVersion,
     externalSecretsChartVersion: externalSecretsChartVersion,
+    nodeGroupAmiType: nodeGroupAmiType,
+    nodeGroupDesiredSize: nodeGroupDesiredSize,
+    nodeGroupInstanceType: nodeGroupInstanceType,
     vpc: vpcStack.vpc,
 });

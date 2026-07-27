@@ -34,12 +34,24 @@ describe("EksStack", () => {
             envoyGatewayChartVersion: "v1.8.2",
             externalDnsChartVersion: "1.21.1",
             externalSecretsChartVersion: "2.7.0",
+            nodeGroupAmiType: "AL2023_ARM_64_STANDARD",
+            nodeGroupDesiredSize: 2,
+            nodeGroupInstanceType: "c6g.xlarge",
             vpc: vpcStack.vpc,
         });
 
         const template = Template.fromStack(stack);
 
         template.resourceCountIs("Custom::AWSCDK-EKS-Cluster", 1);
+        template.hasResourceProperties("AWS::EKS::Nodegroup", {
+            AmiType: "AL2023_ARM_64_STANDARD",
+            InstanceTypes: ["c6g.xlarge"],
+            ScalingConfig: {
+                DesiredSize: 2,
+                MaxSize: 20,
+                MinSize: 0,
+            },
+        });
         template.resourceCountIs("AWS::EKS::Addon", 1);
         template.hasResourceProperties("Custom::AWSCDK-EKS-HelmChart", {
             Chart: "external-dns",

@@ -25,6 +25,27 @@ import {
 } from "./gateway";
 
 
+const NODE_GROUP_AMI_TYPES: ReadonlySet<string> = new Set(
+    Object.values(eks.NodegroupAmiType),
+);
+
+/**
+ * Parses an EKS managed node group AMI type.
+ *
+ * @param value Raw context value.
+ * @return Corresponding CDK enum member.
+ * @throws {Error} If the value isn't a supported AMI type.
+ */
+const parseNodeGroupAmiType = function (
+    value: string,
+): eks.NodegroupAmiType {
+    if (false === NODE_GROUP_AMI_TYPES.has(value)) {
+        throw new Error(`Invalid nodeGroupAmiType: ${value}`);
+    }
+
+    return value as eks.NodegroupAmiType;
+};
+
 export interface EksStackProps extends ClusterScopedStackProps {
     auth0ClientId: string;
     auth0ClientSecretParameterName: string;
@@ -37,6 +58,9 @@ export interface EksStackProps extends ClusterScopedStackProps {
     envoyGatewayChartVersion: string;
     externalDnsChartVersion: string;
     externalSecretsChartVersion: string;
+    nodeGroupAmiType: string;
+    nodeGroupDesiredSize: number;
+    nodeGroupInstanceType: string;
     vpc: ec2.IVpc;
 }
 
@@ -177,17 +201,12 @@ export class EksStack extends ClusterScopedStack {
         const ebsCsiDriverAddon = this.addEbsCsiDriverAddon();
         this.addGp3StorageClass(ebsCsiDriverAddon);
 
-        // eslint-disable-next-line no-warning-comments
-        // TODO: Switch to ARM instances once things stabilize.
         const nodeGroup = this.cluster.addNodegroupCapacity("NodeGroup", {
-            amiType: eks.NodegroupAmiType.AL2023_X86_64_STANDARD,
-            desiredSize: 2,
-            instanceTypes: [ec2.InstanceType.of(
-                ec2.InstanceClass.C8I,
-                ec2.InstanceSize.XLARGE,
-            )],
+            amiType: parseNodeGroupAmiType(props.nodeGroupAmiType),
+            desiredSize: props.nodeGroupDesiredSize,
+            instanceTypes: [new ec2.InstanceType(props.nodeGroupInstanceType)],
             maxSize: 20,
-            minSize: 1,
+            minSize: 0,
         });
 
         // AwsSolutions-IAM4 flags IAM users, roles, or groups that use
