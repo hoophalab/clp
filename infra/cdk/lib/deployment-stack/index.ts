@@ -83,12 +83,16 @@ export class DeploymentStack extends ClusterScopedStack {
             // eslint-disable-next-line no-warning-comments
             // TODO: Type validate these chart values.
             values: {
+                allowHostAccessForSbinScripts: false,
                 clpConfig: {
                     logs_input: {
                         aws_authentication: {
                             type: "default",
                         },
                         type: "s3",
+                    },
+                    results_cache: {
+                        retention_period: null,
                     },
                     archive_output: {
                         storage: {
@@ -140,7 +144,6 @@ export class DeploymentStack extends ClusterScopedStack {
             hostname: hostname,
             namespace: namespace,
             namespaceManifest: namespaceManifest,
-            scope: this,
         });
         this.suppressHelmKubectlProviderNags(cluster);
     }
