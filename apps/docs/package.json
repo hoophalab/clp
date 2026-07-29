@@ -1,0 +1,11 @@
+{
+  "name": "@cloud.yscope.com/docs",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "uv run --locked --no-dev --isolated sphinx-build -M html source build --fail-on-warning --fresh-env",
+    "clean": "uv run --locked sphinx-build -M clean source build",
+    "dev": "uv run --locked sphinx-autobuild source build/html",
+    "typecheck": "uv run --locked mypy --strict --cache-dir build/mypy-cache source/conf.py"
+  }
+}

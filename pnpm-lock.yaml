@@ -8,6 +8,8 @@ importers:
 
   .: {}
 
+  apps/docs: {}
+
   infra/cdk:
     dependencies:
       '@aws-cdk/lambda-layer-kubectl-v35':
