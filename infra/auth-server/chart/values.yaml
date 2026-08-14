@@ -1,0 +1,14 @@
+image:
+  repository: "auth-server"
+  tag: "latest"
+  pullPolicy: "IfNotPresent"
+
+baseDomain: "example.cloud.yscope.com"
+database:
+  host: "example.cluster.us-east-1.rds.amazonaws.com"
+  name: "auth"
+  port: 3307
+  secret: "auth-server-database"
+  username: "auth_server"
+logFilter: "auth_server=info"
+replicaCount: 1

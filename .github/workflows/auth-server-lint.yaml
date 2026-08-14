@@ -1,0 +1,33 @@
+name: "auth-server lint"
+
+on:
+  pull_request:
+    branches: &target_branches ["main"]
+    paths: &monitored_paths
+      - ".github/workflows/auth-server-lint.yaml"
+      - "infra/auth-server/**"
+  push:
+    branches: *target_branches
+    paths: *monitored_paths
+  workflow_dispatch:
+
+permissions:
+  contents: "read"
+
+concurrency:
+  group: "${{github.workflow}}-${{github.ref}}"
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: "${{fromJSON(vars.GH_RUNNER_LINUX_LIGHT_X64)}}"
+    container: "rust:bookworm@sha256:77fac8b98f9f46062bb680b6d25d5bcaabfc400143952ebc572e924bcbedc3fa"
+    defaults:
+      run:
+        working-directory: "infra/auth-server"
+    steps:
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+
+      - run: "cargo fmt --check"
+
+      - run: "cargo clippy --locked -- -D warnings"

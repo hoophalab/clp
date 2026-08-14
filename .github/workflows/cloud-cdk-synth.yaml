@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   synth:
-    runs-on: ["self-hosted", "x64", "ubuntu-noble"]
+    runs-on: "${{fromJSON(vars.GH_RUNNER_LINUX_LIGHT_X64)}}"
     env:
       CDK_DEFAULT_ACCOUNT: "123456789012"
       CDK_DEFAULT_REGION: "us-east-1"
@@ -71,6 +71,12 @@ jobs:
           -c com.yscope.cloud/auth0Domain=test.us.auth0.com
           -c com.yscope.cloud/auth0ClientId=test-client-id
           -c com.yscope.cloud/auth0ClientSecretParameterName=/cloud/test/auth0-client-secret
+          -c com.yscope.cloud/authServerImageTag=0000000000000000000000000000000000000000
+          -c com.yscope.cloud/githubRepository=y-scope/cloud.yscope.com
+
+      - name: "Synthesize account stack"
+        working-directory: "infra/cdk"
+        run: "pnpm run cdk:account synth"
 
       - name: "Synthesize deployment stack"
         working-directory: "infra/cdk"

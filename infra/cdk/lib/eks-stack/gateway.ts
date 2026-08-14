@@ -7,6 +7,11 @@ import {
     GATEWAY_SYSTEM_NAMESPACE,
     PARAMETER_STORE_NAME,
 } from "../gateway-constants";
+import {
+    addAuthServer,
+    AUTH_SERVER_PORT,
+    AUTH_SERVER_RELEASE_NAME,
+} from "./auth-server";
 import {CertManagerResources} from "./cert-manager";
 import {ExternalDnsResources} from "./external-dns";
 import {ExternalSecretsResources} from "./external-secrets";
@@ -25,6 +30,9 @@ const GATEWAY_TLS_SECRET_NAME = "deployments-gateway-tls";
 const AUTH0_CLIENT_SECRET_NAME = "auth0-client-secret";
 const AUTH0_CALLBACK_PATH = "/oauth2/callback";
 const AUTH0_LOGOUT_PATH = "/logout";
+const AUTH0_ID_TOKEN = "Auth0IdToken";
+const AUTH0_ACCESS_TOKEN_COOKIE = "YscopeAccessToken";
+const AUTH0_USER_ID_HEADER = "x-auth0-user-id";
 const APEX_HTTPS_LISTENER_NAME = "apex-https";
 
 export interface GatewayResources {
@@ -43,6 +51,7 @@ export interface GatewayResources {
  * @param config.externalSecrets Installed External Secrets resources.
  * @param config.gateway Deployments Gateway manifest.
  * @param config.gatewayNamespace Gateway namespace manifest.
+ * @param config.authServerChart Auth server Helm release.
  */
 // eslint-disable-next-line max-lines-per-function
 const addAuth0 = function (
@@ -50,6 +59,7 @@ const addAuth0 = function (
         auth0ClientId,
         auth0ClientSecretParameterName,
         auth0Domain,
+        authServerChart,
         cluster,
         clusterDomain,
         externalSecrets,
@@ -59,6 +69,7 @@ const addAuth0 = function (
         auth0ClientId: string;
         auth0ClientSecretParameterName: string;
         auth0Domain: string;
+        authServerChart: eks.HelmChart;
         cluster: eks.Cluster;
         clusterDomain: string;
         externalSecrets: ExternalSecretsResources;
@@ -141,9 +152,43 @@ const addAuth0 = function (
                 clientID: auth0ClientId,
                 clientSecret: {name: AUTH0_CLIENT_SECRET_NAME},
                 cookieDomain: clusterDomain,
+                cookieNames: {
+                    accessToken: AUTH0_ACCESS_TOKEN_COOKIE,
+                    idToken: AUTH0_ID_TOKEN,
+                },
+                disableTokenEncryption: true,
                 logoutPath: AUTH0_LOGOUT_PATH,
                 provider: {issuer: `https://${auth0Domain}`},
                 redirectURL: `https://${clusterDomain}${AUTH0_CALLBACK_PATH}`,
+            },
+            extAuth: {
+                failOpen: false,
+                headersToExtAuth: [
+                    AUTH0_USER_ID_HEADER,
+                ],
+                http: {
+                    backendRefs: [{
+                        name: AUTH_SERVER_RELEASE_NAME,
+                        port: AUTH_SERVER_PORT,
+                    }],
+                    pathOverride: "/authorize",
+                },
+                timeout: "5s",
+            },
+            jwt: {
+                providers: [{
+                    audiences: [auth0ClientId],
+                    claimToHeaders: [{
+                        claim: "sub",
+                        header: AUTH0_USER_ID_HEADER,
+                    }],
+                    extractFrom: {cookies: [AUTH0_ID_TOKEN]},
+                    issuer: `https://${auth0Domain}/`,
+                    name: "auth0",
+                    remoteJWKS: {
+                        uri: `https://${auth0Domain}/.well-known/jwks.json`,
+                    },
+                }],
             },
             targetRefs: [
                 {
@@ -163,6 +208,7 @@ const addAuth0 = function (
     });
 
     securityPolicy.node.addDependency(callbackRoute);
+    securityPolicy.node.addDependency(authServerChart);
     securityPolicy.node.addDependency(clientSecret);
     securityPolicy.node.addDependency(gateway);
 };
@@ -174,6 +220,10 @@ const addAuth0 = function (
  * @param config.auth0ClientId Auth0 application client ID.
  * @param config.auth0ClientSecretParameterName SSM client secret parameter.
  * @param config.auth0Domain Auth0 tenant domain.
+ * @param config.rdsHost RDS hostname.
+ * @param config.rdsName RDS database name.
+ * @param config.rdsPort Database listener port.
+ * @param config.rdsUsername Database login user.
  * @param config.certManager Installed cert-manager resources.
  * @param config.cloudflareApiTokenParameterName SSM parameter containing the token.
  * @param config.cluster EKS cluster.
@@ -183,6 +233,9 @@ const addAuth0 = function (
  * @param config.externalDns Installed ExternalDNS resources.
  * @param config.externalSecrets Installed External Secrets resources.
  * @param config.scope Construct scope.
+ * @param config.rdsSecretArn RDS credentials secret ARN.
+ * @param config.authServerImageRepository ECR image repository.
+ * @param config.authServerImageTag Immutable container version to deploy.
  * @return Installed gateway resources.
  */
 // eslint-disable-next-line max-lines-per-function, max-statements
@@ -191,6 +244,13 @@ export const addGateway = function (
         auth0ClientId,
         auth0ClientSecretParameterName,
         auth0Domain,
+        rdsHost,
+        rdsName,
+        rdsPort,
+        rdsSecretArn,
+        rdsUsername,
+        authServerImageRepository,
+        authServerImageTag,
         certManager,
         cloudflareApiTokenParameterName,
         cluster,
@@ -204,6 +264,13 @@ export const addGateway = function (
         auth0ClientId: string;
         auth0ClientSecretParameterName: string;
         auth0Domain: string;
+        rdsHost: string;
+        rdsName: string;
+        rdsPort: number;
+        rdsSecretArn: string;
+        rdsUsername: string;
+        authServerImageRepository: string;
+        authServerImageTag: string;
         certManager: CertManagerResources;
         cloudflareApiTokenParameterName: string;
         cluster: eks.Cluster;
@@ -293,6 +360,20 @@ export const addGateway = function (
 
     const clusterDomain = `${clusterName}.${domainName}`;
     const wildcardHostname = `*.${clusterDomain}`;
+    const authServerChart = addAuthServer({
+        baseDomain: clusterDomain,
+        chartDependency: gatewayNamespace,
+        cluster: cluster,
+        externalSecrets: externalSecrets,
+        imageRepository: authServerImageRepository,
+        imageTag: authServerImageTag,
+        rdsHost: rdsHost,
+        rdsName: rdsName,
+        rdsPort: rdsPort,
+        rdsSecretArn: rdsSecretArn,
+        rdsUsername: rdsUsername,
+        scope: scope,
+    });
     const envoyProxy = cluster.addManifest("DeploymentsGatewayEnvoyProxy", {
         apiVersion: "gateway.envoyproxy.io/v1alpha1",
         kind: "EnvoyProxy",
@@ -301,6 +382,10 @@ export const addGateway = function (
             namespace: GATEWAY_SYSTEM_NAMESPACE,
         },
         spec: {
+            filterOrder: [{
+                after: "envoy.filters.http.jwt_authn",
+                name: "envoy.filters.http.ext_authz",
+            }],
             provider: {
                 kubernetes: {
                     envoyService: {
@@ -502,6 +587,7 @@ export const addGateway = function (
         auth0ClientId: auth0ClientId,
         auth0ClientSecretParameterName: auth0ClientSecretParameterName,
         auth0Domain: auth0Domain,
+        authServerChart: authServerChart,
         cluster: cluster,
         clusterDomain: clusterDomain,
         externalSecrets: externalSecrets,

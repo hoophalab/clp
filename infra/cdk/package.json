@@ -7,6 +7,7 @@
     "test": "vitest run",
     "lint": "eslint .",
     "cdk": "cdk",
+    "cdk:account": "cdk --app \"pnpm exec ts-node --prefer-ts-exts bin/app-account.ts\"",
     "cdk:cluster": "cdk --app \"pnpm exec ts-node --prefer-ts-exts bin/app.ts\"",
     "cdk:deployment": "cdk --app \"pnpm exec ts-node --prefer-ts-exts bin/deployment-app.ts\""
   },

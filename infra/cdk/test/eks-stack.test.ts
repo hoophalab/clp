@@ -24,6 +24,10 @@ describe("EksStack", () => {
             auth0ClientId: "test-client-id",
             auth0ClientSecretParameterName: "/cloud/test/auth0-client-secret",
             auth0Domain: "test.us.auth0.com",
+            authServerImageRepository:
+                "123456789012.dkr.ecr.us-east-1.amazonaws.com/" +
+                "test/auth-server",
+            authServerImageTag: "0000000000000000000000000000000000000000",
             certManagerChartVersion: "v1.21.0",
             cloudflareApiTokenParameterName: "/cloud/test/cloudflare-api-token",
             cloudflareZoneNames: ["yscope.com"],
@@ -37,6 +41,14 @@ describe("EksStack", () => {
             nodeGroupAmiType: "AL2023_ARM_64_STANDARD",
             nodeGroupDesiredSize: 2,
             nodeGroupInstanceType: "c6g.xlarge",
+            rdsHost: "test.cluster.us-east-1.rds.amazonaws.com",
+            rdsName: "auth",
+            rdsPort: 3307,
+            rdsSecretArn:
+                "arn:aws:secretsmanager:us-east-1:123456789012:" +
+                "secret:test-auth-database",
+            rdsSecurityGroupId: "sg-0123456789abcdef0",
+            rdsUsername: "auth_server",
             vpc: vpcStack.vpc,
         });
 

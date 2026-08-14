@@ -8,6 +8,8 @@ const DEFAULT_CERT_MANAGER_CHART_VERSION = "v1.21.0";
 const DEFAULT_EXTERNAL_DNS_CHART_VERSION = "1.21.1";
 const DEFAULT_EXTERNAL_SECRETS_CHART_VERSION = "2.7.0";
 const DEFAULT_ENVOY_GATEWAY_CHART_VERSION = "v1.8.2";
+const GIT_SHA_PATTERN = /^[0-9a-f]{40}$/;
+const GITHUB_REPOSITORY_PATTERN = /^[\w.-]+\/[\w.-]+$/;
 const KUBERNETES_NAMESPACE_LABEL_PATTERN = (
     /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/
 );
@@ -357,6 +359,54 @@ export const getAuth0ClientSecretParameterName = function (app: cdk.App): string
     }
 
     return parameterName;
+};
+
+/**
+ * Gets the auth server image commit SHA.
+ *
+ * @param app CDK app.
+ * @return Immutable container image tag.
+ */
+export const getAuthServerImageTag = function (app: cdk.App): string {
+    const tag: unknown = app.node.tryGetContext(
+        "com.yscope.cloud/authServerImageTag",
+    );
+
+    if ("string" !== typeof tag || false === GIT_SHA_PATTERN.test(tag)) {
+        return panic(
+            "Missing or invalid context variable: " +
+            "'com.yscope.cloud/authServerImageTag'. Pass the 40-character " +
+            "Git commit SHA published by the auth-server image workflow.",
+        );
+    }
+
+    return tag;
+};
+
+/**
+ * Gets the GitHub repository trusted to assume the image publishing role.
+ *
+ * @param app CDK app.
+ * @return GitHub repository in "owner/name" form.
+ */
+export const getGithubRepository = function (app: cdk.App): string {
+    const repository: unknown = app.node.tryGetContext(
+        "com.yscope.cloud/githubRepository",
+    );
+
+    if (
+        "string" !== typeof repository ||
+        false === GITHUB_REPOSITORY_PATTERN.test(repository)
+    ) {
+        return panic(
+            "Missing or invalid context variable: " +
+            "'com.yscope.cloud/githubRepository'. Pass the GitHub repository " +
+            "in \"owner/name\" form via cdk.json or the CLI " +
+            "(-c com.yscope.cloud/githubRepository=y-scope/cloud.yscope.com).",
+        );
+    }
+
+    return repository;
 };
 
 /**

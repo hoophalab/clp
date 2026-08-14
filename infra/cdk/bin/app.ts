@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 
-import {ClpRegistryStack} from "../lib/clp-registry-stack";
+import {EcrStack} from "../lib/ecr-stack";
 import {EksStack} from "../lib/eks-stack";
+import {RdsStack} from "../lib/rds-stack";
 import {VpcStack} from "../lib/vpc-stack";
 import {
     createApp,
     getAuth0ClientId,
     getAuth0ClientSecretParameterName,
     getAuth0Domain,
+    getAuthServerImageTag,
     getCertManagerChartVersion,
     getCloudflareApiTokenParameterName,
     getCloudflareZoneNames,
@@ -18,6 +20,7 @@ import {
     getEnvoyGatewayChartVersion,
     getExternalDnsChartVersion,
     getExternalSecretsChartVersion,
+    getGithubRepository,
     getNodeGroupAmiType,
     getNodeGroupDesiredSize,
     getNodeGroupInstanceType,
@@ -28,6 +31,7 @@ const app = createApp();
 const auth0ClientId = getAuth0ClientId(app);
 const auth0ClientSecretParameterName = getAuth0ClientSecretParameterName(app);
 const auth0Domain = getAuth0Domain(app);
+const authServerImageTag = getAuthServerImageTag(app);
 const certManagerChartVersion = getCertManagerChartVersion(app);
 const cloudflareApiTokenParameterName = getCloudflareApiTokenParameterName(app);
 const cloudflareZoneNames = getCloudflareZoneNames(app);
@@ -37,21 +41,33 @@ const domainName = getDomainName(app);
 const envoyGatewayChartVersion = getEnvoyGatewayChartVersion(app);
 const externalDnsChartVersion = getExternalDnsChartVersion(app);
 const externalSecretsChartVersion = getExternalSecretsChartVersion(app);
+const githubRepository = getGithubRepository(app);
 const nodeGroupAmiType = getNodeGroupAmiType(app);
 const nodeGroupDesiredSize = getNodeGroupDesiredSize(app);
 const nodeGroupInstanceType = getNodeGroupInstanceType(app);
 const env = getEnv();
 
 const vpcStack = new VpcStack(app, "Vpc", {clusterName, env});
+const {vpc} = vpcStack;
 
-// eslint-disable-next-line no-new
-new ClpRegistryStack(app, "ClpRegistry", {clusterName, env});
+const rdsStack = new RdsStack(app, "Rds", {
+    clusterName,
+    env,
+    vpc,
+});
 
-// eslint-disable-next-line no-new
-new EksStack(app, "Eks", {
+const ecrStack = new EcrStack(app, "Ecr", {
+    clusterName,
+    env,
+    githubRepository,
+});
+
+const eksStack = new EksStack(app, "Eks", {
     auth0ClientId: auth0ClientId,
     auth0ClientSecretParameterName: auth0ClientSecretParameterName,
     auth0Domain: auth0Domain,
+    authServerImageRepository: ecrStack.authServerImageRepository.repositoryUri,
+    authServerImageTag: authServerImageTag,
     certManagerChartVersion: certManagerChartVersion,
     cloudflareApiTokenParameterName: cloudflareApiTokenParameterName,
     cloudflareZoneNames: cloudflareZoneNames,
@@ -65,5 +81,14 @@ new EksStack(app, "Eks", {
     nodeGroupAmiType: nodeGroupAmiType,
     nodeGroupDesiredSize: nodeGroupDesiredSize,
     nodeGroupInstanceType: nodeGroupInstanceType,
-    vpc: vpcStack.vpc,
+    rdsHost: rdsStack.host,
+    rdsName: rdsStack.name,
+    rdsPort: rdsStack.port,
+    rdsSecretArn: rdsStack.secret.secretArn,
+    rdsSecurityGroupId: rdsStack.securityGroup.securityGroupId,
+    rdsUsername: rdsStack.username,
+    vpc: vpc,
 });
+
+eksStack.addDependency(ecrStack);
+eksStack.addDependency(rdsStack);

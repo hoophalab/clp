@@ -14,20 +14,24 @@ const EXTERNAL_SECRETS_NAMESPACE = "external-secrets";
 const EXTERNAL_SECRETS_RELEASE_NAME = "external-secrets";
 const EXTERNAL_SECRETS_REPOSITORY = "https://charts.external-secrets.io";
 const EXTERNAL_SECRETS_SERVICE_ACCOUNT_NAME = "external-secrets";
+const SECRETS_MANAGER_STORE_NAME = "aws-secrets-manager";
 export interface ExternalSecretsResources {
     chart: eks.HelmChart;
     namespace: eks.KubernetesManifest;
     secretStore: eks.KubernetesManifest;
     secretStoreName: string;
+    secretsManagerStore: eks.KubernetesManifest;
+    secretsManagerStoreName: string;
 }
 
 /**
- * Installs External Secrets Operator with IRSA and an SSM Parameter Store backend.
+ * Installs External Secrets Operator with AWS secret backends.
  *
  * @param config External Secrets Operator configuration.
  * @param config.chartVersion External Secrets Operator Helm chart version.
  * @param config.cluster EKS cluster.
  * @param config.parameterNames SSM parameters that the operator may read.
+ * @param config.secretArns Secrets Manager secrets that the operator may read.
  * @param config.scope Construct scope.
  * @return Installed operator resources and its ClusterSecretStore.
  */
@@ -37,11 +41,13 @@ export const addExternalSecrets = function (
         chartVersion,
         cluster,
         parameterNames,
+        secretArns,
         scope,
     }: {
         chartVersion: string;
         cluster: eks.Cluster;
         parameterNames: string[];
+        secretArns: string[];
         scope: Construct;
     },
 ): ExternalSecretsResources {
@@ -68,7 +74,7 @@ export const addExternalSecrets = function (
             cluster.openIdConnectProvider,
             {StringEquals: conditions},
         ),
-        description: "Reads gateway credentials from SSM Parameter Store.",
+        description: "Reads gateway credentials from AWS secret stores.",
     });
     const parameterArns = parameterNames.map((parameterName) => {
         return cdk.Stack.of(scope).formatArn({
@@ -82,6 +88,10 @@ export const addExternalSecrets = function (
     role.addToPolicy(new iam.PolicyStatement({
         actions: ["ssm:GetParameter"],
         resources: parameterArns,
+    }));
+    role.addToPolicy(new iam.PolicyStatement({
+        actions: ["secretsmanager:GetSecretValue"],
+        resources: secretArns,
     }));
 
     const chart = new eks.HelmChart(scope, "ExternalSecretsHelmRelease", {
@@ -131,10 +141,29 @@ export const addExternalSecrets = function (
 
     secretStore.node.addDependency(chart);
 
+    const secretsManagerStore = cluster.addManifest("SecretsManagerStore", {
+        apiVersion: "external-secrets.io/v1",
+        kind: "ClusterSecretStore",
+        metadata: {name: SECRETS_MANAGER_STORE_NAME},
+        spec: {
+            conditions: [{namespaces: [GATEWAY_SYSTEM_NAMESPACE]}],
+            provider: {
+                aws: {
+                    region: cdk.Stack.of(scope).region,
+                    service: "SecretsManager",
+                },
+            },
+        },
+    });
+
+    secretsManagerStore.node.addDependency(chart);
+
     return {
         chart: chart,
         namespace: namespace,
         secretStore: secretStore,
         secretStoreName: PARAMETER_STORE_NAME,
+        secretsManagerStore: secretsManagerStore,
+        secretsManagerStoreName: SECRETS_MANAGER_STORE_NAME,
     };
 };

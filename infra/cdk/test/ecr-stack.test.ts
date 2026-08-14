@@ -5,19 +5,20 @@ import {
     test,
 } from "vitest";
 
-import {ClpRegistryStack} from "../lib/clp-registry-stack";
+import {EcrStack} from "../lib/ecr-stack";
 
 
-describe("ClpRegistryStack", () => {
-    test("synthesizes CLP repositories", () => {
+describe("EcrStack", () => {
+    test("synthesizes application repositories", () => {
         const app = new cdk.App();
-        const stack = new ClpRegistryStack(app, "TestClpRegistry", {
+        const stack = new EcrStack(app, "TestEcr", {
             clusterName: "test",
             env: {account: "123456789012", region: "us-east-1"},
+            githubRepository: "y-scope/cloud.yscope.com",
         });
 
         const template = Template.fromStack(stack);
 
-        template.resourceCountIs("AWS::ECR::Repository", 2);
+        template.resourceCountIs("AWS::ECR::Repository", 3);
     });
 });
