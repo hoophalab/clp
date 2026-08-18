@@ -3,6 +3,7 @@ kind: "Service"
 metadata:
   name: {{ .Release.Name | quote }}
 spec:
+  trafficDistribution: "PreferSameZone"
   selector:
     app.kubernetes.io/name: {{ .Chart.Name | quote }}
     app.kubernetes.io/instance: {{ .Release.Name | quote }}

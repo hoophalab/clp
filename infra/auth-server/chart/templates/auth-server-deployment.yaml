@@ -22,6 +22,10 @@ spec:
           image: {{ printf "%s:%s" .Values.image.repository .Values.image.tag | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
           env:
+            - name: "ACCESS_CACHE_MAX_ENTRIES"
+              value: {{ .Values.accessCache.maxEntries | quote }}
+            - name: "ACCESS_CACHE_TTL_SECONDS"
+              value: {{ .Values.accessCache.ttlSeconds | quote }}
             - name: "BASE_DOMAIN"
               value: {{ .Values.baseDomain | quote }}
             - name: "RUST_LOG"
@@ -65,3 +69,10 @@ spec:
       securityContext:
         seccompProfile:
           type: "RuntimeDefault"
+      topologySpreadConstraints:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ .Chart.Name | quote }}
+              app.kubernetes.io/instance: {{ .Release.Name | quote }}
+          maxSkew: 1
+          topologyKey: "topology.kubernetes.io/zone"

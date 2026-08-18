@@ -6,6 +6,7 @@ use axum::{
     http::{HeaderMap, StatusCode, header::HOST},
     routing::get,
 };
+use moka::future::Cache;
 use sqlx::{
     MySqlPool,
     mysql::{MySqlConnectOptions, MySqlPoolOptions},
@@ -15,10 +16,19 @@ use tracing_appender::non_blocking::{NonBlockingBuilder, WorkerGuard};
 use tracing_subscriber::EnvFilter;
 
 const USER_ID_HEADER: &str = "x-auth0-user-id";
+const DEFAULT_ACCESS_CACHE_TTL_SECONDS: u64 = 60;
+const DEFAULT_ACCESS_CACHE_MAX_ENTRIES: u64 = 10_000;
+
+#[derive(Hash, PartialEq, Eq)]
+struct AccessCacheKey {
+    user_id: String,
+    deployment_id: String,
+}
 
 struct App {
     base_domain: String,
     pool: MySqlPool,
+    access_cache: Cache<AccessCacheKey, bool>,
 }
 
 async fn authorize(State(app): State<Arc<App>>, headers: HeaderMap) -> StatusCode {
@@ -53,15 +63,27 @@ async fn authorize(State(app): State<Arc<App>>, headers: HeaderMap) -> StatusCod
             return StatusCode::UNAUTHORIZED;
         }
     };
-    // TODO: Cache access lookups with a bounded TTL to avoid querying the database on every request.
-    let allowed: bool = match sqlx::query_scalar(
-        "SELECT EXISTS (SELECT 1 FROM user_deployment_access \
-         WHERE user_id = ? AND deployment_id = ?)",
-    )
-    .bind(user_id)
-    .bind(deployment_id)
-    .fetch_one(&app.pool)
-    .await
+    let access_cache_key = AccessCacheKey {
+        user_id: user_id.to_owned(),
+        deployment_id: deployment_id.to_owned(),
+    };
+    let allowed: bool = match app
+        .access_cache
+        .try_get_with(access_cache_key, async {
+            info!(
+                host,
+                deployment_id, user_id, "querying database for deployment access"
+            );
+            sqlx::query_scalar(
+                "SELECT EXISTS (SELECT 1 FROM user_deployment_access \
+                 WHERE user_id = ? AND deployment_id = ?)",
+            )
+            .bind(user_id)
+            .bind(deployment_id)
+            .fetch_one(&app.pool)
+            .await
+        })
+        .await
     {
         Ok(allowed) => allowed,
         Err(error) => {
@@ -122,9 +144,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     sqlx::migrate!("db/migrations").run(&pool).await?;
     info!("authorization database ready");
 
+    let access_cache_ttl_seconds: u64 = match env::var("ACCESS_CACHE_TTL_SECONDS") {
+        Ok(value) => value.parse()?,
+        Err(_) => DEFAULT_ACCESS_CACHE_TTL_SECONDS,
+    };
+    let access_cache_max_entries: u64 = match env::var("ACCESS_CACHE_MAX_ENTRIES") {
+        Ok(value) => value.parse()?,
+        Err(_) => DEFAULT_ACCESS_CACHE_MAX_ENTRIES,
+    };
     let app = Arc::new(App {
         base_domain: env::var("BASE_DOMAIN")?,
         pool,
+        access_cache: Cache::builder()
+            .max_capacity(access_cache_max_entries)
+            .time_to_live(Duration::from_secs(access_cache_ttl_seconds))
+            .build(),
     });
     let router = Router::new()
         .route("/health", get(|| async { StatusCode::OK }))

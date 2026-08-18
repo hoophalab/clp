@@ -171,6 +171,17 @@ const addAuth0 = function (
                         name: AUTH_SERVER_RELEASE_NAME,
                         port: AUTH_SERVER_PORT,
                     }],
+                    backendSettings: {
+                        loadBalancer: {
+                            type: "LeastRequest",
+                            zoneAware: {
+                                preferLocal: {
+                                    force: {minEndpointsInZoneThreshold: 1},
+                                    minEndpointsThreshold: 1,
+                                },
+                            },
+                        },
+                    },
                     pathOverride: "/authorize",
                 },
                 timeout: "5s",
@@ -236,6 +247,8 @@ const addAuth0 = function (
  * @param config.rdsSecretArn RDS credentials secret ARN.
  * @param config.authServerImageRepository ECR image repository.
  * @param config.authServerImageTag Immutable container version to deploy.
+ * @param config.availabilityZoneCount VPC availability zones; sizes the auth
+ * server and Envoy proxy replica counts (one per AZ).
  * @return Installed gateway resources.
  */
 // eslint-disable-next-line max-lines-per-function, max-statements
@@ -251,6 +264,7 @@ export const addGateway = function (
         rdsUsername,
         authServerImageRepository,
         authServerImageTag,
+        availabilityZoneCount,
         certManager,
         cloudflareApiTokenParameterName,
         cluster,
@@ -271,6 +285,7 @@ export const addGateway = function (
         rdsUsername: string;
         authServerImageRepository: string;
         authServerImageTag: string;
+        availabilityZoneCount: number;
         certManager: CertManagerResources;
         cloudflareApiTokenParameterName: string;
         cluster: eks.Cluster;
@@ -372,6 +387,7 @@ export const addGateway = function (
         rdsPort: rdsPort,
         rdsSecretArn: rdsSecretArn,
         rdsUsername: rdsUsername,
+        replicaCount: availabilityZoneCount,
         scope: scope,
     });
     const envoyProxy = cluster.addManifest("DeploymentsGatewayEnvoyProxy", {
@@ -388,6 +404,24 @@ export const addGateway = function (
             }],
             provider: {
                 kubernetes: {
+                    envoyDeployment: {
+                        pod: {
+                            topologySpreadConstraints: [{
+                                labelSelector: {
+                                    matchLabels: {
+                                        "gateway.envoyproxy.io/owning-gateway-name":
+                                            DEPLOYMENTS_GATEWAY_NAME,
+                                        "gateway.envoyproxy.io/owning-gateway-namespace":
+                                            GATEWAY_SYSTEM_NAMESPACE,
+                                    },
+                                },
+                                maxSkew: 1,
+                                topologyKey: "topology.kubernetes.io/zone",
+                                whenUnsatisfiable: "ScheduleAnyway",
+                            }],
+                        },
+                        replicas: availabilityZoneCount,
+                    },
                     envoyService: {
                         annotations: {
                             "external-dns.alpha.kubernetes.io/hostname":

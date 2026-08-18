@@ -28,6 +28,7 @@ const DATABASE_SECRET_NAME = "auth-server-database";
  * @param config.externalSecrets
  * @param config.imageRepository
  * @param config.imageTag
+ * @param config.replicaCount
  * @param config.scope
  * @return Auth server Helm release.
  */
@@ -45,6 +46,7 @@ export const addAuthServer = function (
         externalSecrets,
         imageRepository,
         imageTag,
+        replicaCount,
         scope,
     }: {
         baseDomain: string;
@@ -58,6 +60,7 @@ export const addAuthServer = function (
         externalSecrets: ExternalSecretsResources;
         imageRepository: string;
         imageTag: string;
+        replicaCount: number;
         scope: Construct;
     },
 ): eks.HelmChart {
@@ -113,6 +116,7 @@ export const addAuthServer = function (
                 repository: imageRepository,
                 tag: imageTag,
             },
+            replicaCount: replicaCount,
         },
         wait: true,
     });

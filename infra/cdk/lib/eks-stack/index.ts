@@ -293,6 +293,7 @@ export class EksStack extends ClusterScopedStack {
             auth0Domain: props.auth0Domain,
             authServerImageRepository: props.authServerImageRepository,
             authServerImageTag: props.authServerImageTag,
+            availabilityZoneCount: props.vpc.availabilityZones.length,
             certManager: certManager,
             cloudflareApiTokenParameterName: props.cloudflareApiTokenParameterName,
             cluster: this.cluster,

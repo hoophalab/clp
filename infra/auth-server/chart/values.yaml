@@ -3,6 +3,10 @@ image:
   tag: "latest"
   pullPolicy: "IfNotPresent"
 
+accessCache:
+  maxEntries: 10000
+  ttlSeconds: 60
+
 baseDomain: "example.cloud.yscope.com"
 database:
   host: "example.cluster.us-east-1.rds.amazonaws.com"
