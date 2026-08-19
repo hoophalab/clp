@@ -1,7 +1,5 @@
 packages:
-  - "apps/web"
-  - "apps/server"
-  - "apps/docs"
+  - "apps/*"
   - "infra/*"
 
 allowBuilds:

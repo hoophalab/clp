@@ -1,13 +1,22 @@
 {
   "name": "cloud.yscope.com",
   "version": "0.1.0",
-  "packageManager": "pnpm@11.6.0",
+  "packageManager": "pnpm@11.18.0",
   "scripts": {
+    "build": "turbo run build",
     "build:cdk": "pnpm --filter @cloud.yscope.com/cdk run build",
-    "lint": "pnpm run lint:cdk",
+    "dev": "turbo run dev",
+    "dev:server": "turbo run dev --filter=@cloud.yscope.com/server",
+    "dev:web": "turbo run dev --filter=@cloud.yscope.com/web",
+    "lint": "turbo run lint",
     "lint:cdk": "pnpm --filter @cloud.yscope.com/cdk run lint",
-    "test": "pnpm run test:cdk",
-    "test:cdk": "pnpm --filter @cloud.yscope.com/cdk run test"
+    "test": "turbo run test",
+    "test:cdk": "pnpm --filter @cloud.yscope.com/cdk run test",
+    "typecheck": "turbo run typecheck",
+    "watch": "turbo run watch"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "turbo": "2.10.7"
+  }
 }

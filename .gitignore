@@ -1,5 +1,6 @@
 # Build
 node_modules
+.turbo
 target
 
 # CDK asset staging directory

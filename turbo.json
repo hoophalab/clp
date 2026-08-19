@@ -1,0 +1,43 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "globalDependencies": ["pnpm-workspace.yaml"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"]
+    },
+    "@cloud.yscope.com/docs#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["build/doctrees/**", "build/html/**"]
+    },
+    "@cloud.yscope.com/server#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "@cloud.yscope.com/web#build": {
+      "dependsOn": ["^build"],
+      "outputs": [".react-router/types/**", "build/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "@cloud.yscope.com/server#dev": {
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["HOST", "PORT"]
+    },
+    "lint": {},
+    "test": {},
+    "typecheck": {},
+    "@cloud.yscope.com/docs#typecheck": {
+      "outputs": ["build/mypy-cache/**"]
+    },
+    "@cloud.yscope.com/web#typecheck": {
+      "outputs": [".react-router/types/**"]
+    },
+    "watch": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}
