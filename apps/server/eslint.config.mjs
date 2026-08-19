@@ -16,6 +16,10 @@ const EslintConfig = [
         ["src/**/*.ts"],
         "tsconfig.json",
     ),
+    createTsConfigOverride(
+        ["test/**/*.ts"],
+        "tsconfig.test.json",
+    ),
     ...StylisticConfigArray,
 ];
 
