@@ -41,6 +41,7 @@ tower-http = { workspace = true }
 tracing = { workspace = true }
 utoipa = { workspace = true, features = ["axum_extras"] }
 utoipa-axum = { workspace = true }
+zstd = { workspace = true }
 
 [dev-dependencies]
 http-body-util = { workspace = true }

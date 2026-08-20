@@ -126,6 +126,7 @@ dependencies = [
  "tracing",
  "utoipa",
  "utoipa-axum",
+ "zstd",
 ]
 
 [[package]]
