@@ -3,6 +3,11 @@ node_modules
 .turbo
 target
 
+# Local environment files. .env.example, once added, stays tracked.
+.env
+.env.*
+!.env.example
+
 # CDK asset staging directory
 .cdk.staging
 cdk.out

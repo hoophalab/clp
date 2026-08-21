@@ -1,6 +1,6 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
-  "globalDependencies": ["pnpm-workspace.yaml"],
+  "globalDependencies": ["pnpm-workspace.yaml", ".env"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"]
@@ -24,7 +24,7 @@
     "@cloud.yscope.com/server#dev": {
       "cache": false,
       "persistent": true,
-      "passThroughEnv": ["HOST", "PORT"]
+      "passThroughEnv": ["BACKEND_HOST", "BACKEND_PORT"]
     },
     "lint": {},
     "test": {},

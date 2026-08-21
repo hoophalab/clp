@@ -6,14 +6,14 @@ import {createApp} from "./app.js";
 
 
 const DEFAULT_HOSTNAME = "0.0.0.0";
-const DEFAULT_PORT = 3000;
+const DEFAULT_PORT = 5000;
 const MAX_PORT = 65_535;
 
-const hostname = process.env.HOST ?? DEFAULT_HOSTNAME;
-const port = Number(process.env.PORT ?? DEFAULT_PORT);
+const hostname = process.env.BACKEND_HOST ?? DEFAULT_HOSTNAME;
+const port = Number(process.env.BACKEND_PORT ?? DEFAULT_PORT);
 
 if (false === Number.isInteger(port) || 1 > port || MAX_PORT < port) {
-    throw new RangeError(`PORT must be an integer between 1 and ${MAX_PORT}.`);
+    throw new RangeError(`BACKEND_PORT must be an integer between 1 and ${MAX_PORT}.`);
 }
 
 const app = createApp();
