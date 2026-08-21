@@ -22,6 +22,7 @@ import {
     type HealthResponse,
     HealthResponseSchema,
 } from "../src/contracts/index.js";
+import type {ServerEnv} from "../src/environment.js";
 import {
     handleAppError,
     handleNotFound,
@@ -48,7 +49,7 @@ const TestResponseSchema = z.strictObject({
     resourceId: z.string(),
 });
 
-const validationTestApp = new Hono()
+const validationTestApp = new Hono<ServerEnv>()
     .post(
         "/resources/:resourceId",
         requestValidator("param", TestParamsSchema),
@@ -70,7 +71,7 @@ const validationTestApp = new Hono()
     .notFound(handleNotFound)
     .onError(handleAppError);
 
-const unexpectedErrorTestApp = new Hono()
+const unexpectedErrorTestApp = new Hono<ServerEnv>()
     .get("/error", () => {
         throw new Error("database-password=secret");
     })
