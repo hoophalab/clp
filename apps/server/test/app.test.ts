@@ -29,12 +29,15 @@ import {
 } from "../src/errors.js";
 import {
     HTTP_STATUS_BAD_REQUEST,
+    HTTP_STATUS_FORBIDDEN,
     HTTP_STATUS_INTERNAL_SERVER_ERROR,
     HTTP_STATUS_NOT_FOUND,
     HTTP_STATUS_OK,
+    HTTP_STATUS_UNAUTHORIZED,
 } from "../src/http-status.js";
 import {requestValidator} from "../src/request-validation.js";
 import {parseContractResponse} from "../src/response-validation.js";
+import {createRejectAllIdentityVerifier} from "./identity-verifier-fixture.js";
 
 
 const HTTP_STATUS_CREATED = 201;
@@ -82,15 +85,19 @@ afterEach(() => {
 });
 
 it("returns a runtime-validated health response", async () => {
-    const response = await createApp().request("/api/v1/health");
+    const response = await createApp({
+        identityVerifier: createRejectAllIdentityVerifier(),
+    }).request("/api/v1/health");
     const body: unknown = await response.json();
 
     expect(response.status).toBe(HTTP_STATUS_OK);
     expect(HealthResponseSchema.parse(body)).toEqual({status: "ok"});
 });
 
-it("returns the safe error envelope for unknown routes", async () => {
-    const response = await createApp().request("/api/v1/missing");
+it("returns the safe error envelope for unknown public routes", async () => {
+    const response = await createApp({
+        identityVerifier: createRejectAllIdentityVerifier(),
+    }).request("/missing");
     const body: unknown = await response.json();
 
     expect(response.status).toBe(HTTP_STATUS_NOT_FOUND);
@@ -201,6 +208,16 @@ it("preserves production RPC response and status inference", () => {
             typeof HTTP_STATUS_BAD_REQUEST
     >;
 
+    type Health401 = InferResponseType<
+        HealthGet,
+            typeof HTTP_STATUS_UNAUTHORIZED
+    >;
+
+    type Health403 = InferResponseType<
+        HealthGet,
+            typeof HTTP_STATUS_FORBIDDEN
+    >;
+
     type Health500 = InferResponseType<
         HealthGet,
             typeof HTTP_STATUS_INTERNAL_SERVER_ERROR
@@ -212,10 +229,14 @@ it("preserves production RPC response and status inference", () => {
 
     expectTypeOf<Health200>().toEqualTypeOf<HealthResponse>();
     expectTypeOf<Health400>().toEqualTypeOf<ErrorEnvelope>();
+    expectTypeOf<Health401>().toEqualTypeOf<ErrorEnvelope>();
+    expectTypeOf<Health403>().toEqualTypeOf<ErrorEnvelope>();
     expectTypeOf<Health500>().toEqualTypeOf<ErrorEnvelope>();
     expectTypeOf<HealthStatus>().toEqualTypeOf<
             | typeof HTTP_STATUS_OK |
             typeof HTTP_STATUS_BAD_REQUEST |
+            typeof HTTP_STATUS_UNAUTHORIZED |
+            typeof HTTP_STATUS_FORBIDDEN |
             typeof HTTP_STATUS_INTERNAL_SERVER_ERROR
     >();
 });

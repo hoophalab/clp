@@ -11,6 +11,7 @@ import {createApp} from "../src/app.js";
 import type {ServerEnv} from "../src/environment.js";
 import {handleAppError} from "../src/errors.js";
 import {HTTP_STATUS_INTERNAL_SERVER_ERROR} from "../src/http-status.js";
+import {createRejectAllIdentityVerifier} from "./identity-verifier-fixture.js";
 
 
 const REQUEST_ID_HEADER = "X-Request-Id";
@@ -28,13 +29,17 @@ afterEach(() => {
 });
 
 it("returns a generated request ID", async () => {
-    const response = await createApp().request("/api/v1/health");
+    const response = await createApp({
+        identityVerifier: createRejectAllIdentityVerifier(),
+    }).request("/api/v1/health");
 
     expect(response.headers.get(REQUEST_ID_HEADER)).toMatch(REQUEST_ID_PATTERN);
 });
 
 it("ignores a caller-supplied request ID", async () => {
-    const response = await createApp().request("/api/v1/health", {
+    const response = await createApp({
+        identityVerifier: createRejectAllIdentityVerifier(),
+    }).request("/api/v1/health", {
         headers: {[REQUEST_ID_HEADER]: "caller-chosen-id"},
     });
     const assignedRequestId = response.headers.get(REQUEST_ID_HEADER);
@@ -44,7 +49,9 @@ it("ignores a caller-supplied request ID", async () => {
 });
 
 it("gives concurrent requests distinct request IDs", async () => {
-    const app = createApp();
+    const app = createApp({
+        identityVerifier: createRejectAllIdentityVerifier(),
+    });
     const responses = await Promise.all([
         app.request("/api/v1/health", {
             headers: {[REQUEST_ID_HEADER]: "shared-id"},

@@ -2,9 +2,11 @@ import * as z from "zod";
 
 
 const ErrorCodeSchema = z.enum([
+    "forbidden",
     "internal_server_error",
     "invalid_request",
     "not_found",
+    "unauthorized",
 ]);
 
 const ErrorEnvelopeSchema = z.strictObject({
@@ -19,9 +21,11 @@ type ErrorCode = z.infer<typeof ErrorCodeSchema>;
 type ErrorEnvelope = z.infer<typeof ErrorEnvelopeSchema>;
 
 const PublicErrorMessages = {
+    forbidden: "Access to the requested resource is denied.",
     internal_server_error: "An unexpected error occurred.",
     invalid_request: "The request is invalid.",
     not_found: "The requested resource was not found.",
+    unauthorized: "Authentication is required.",
 } as const satisfies Record<ErrorCode, string>;
 
 /**

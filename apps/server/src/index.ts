@@ -3,6 +3,7 @@ import process from "node:process";
 import {serve} from "@hono/node-server";
 
 import {createApp} from "./app.js";
+import {createLocalIdentityVerifier} from "./authentication.js";
 
 
 const DEFAULT_HOSTNAME = "0.0.0.0";
@@ -16,7 +17,14 @@ if (false === Number.isInteger(port) || 1 > port || MAX_PORT < port) {
     throw new RangeError(`BACKEND_PORT must be an integer between 1 and ${MAX_PORT}.`);
 }
 
-const app = createApp();
+// The Auth0-backed verifier arrives with the adapter that binds this boundary
+// to the tenant; until then no credential is accepted.
+const app = createApp({
+    identityVerifier: createLocalIdentityVerifier({
+        auth0Issuer: "urn:yscope:auth0:unconfigured",
+        identities: new Map<string, unknown>(),
+    }),
+});
 const server = serve(
     {
         fetch: app.fetch,
