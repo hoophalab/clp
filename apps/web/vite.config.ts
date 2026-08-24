@@ -6,5 +6,8 @@ import {defineConfig} from "vite";
 export default defineConfig({
     envDir: "../..",
     resolve: {tsconfigPaths: true},
-    plugins: [tailwindcss(), reactRouter()],
+    plugins: [
+        tailwindcss(),
+        reactRouter(),
+    ],
 });
