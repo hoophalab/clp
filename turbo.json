@@ -24,7 +24,11 @@
     "@cloud.yscope.com/server#dev": {
       "cache": false,
       "persistent": true,
-      "passThroughEnv": ["BACKEND_HOST", "BACKEND_PORT"]
+      "passThroughEnv": [
+        "BACKEND_HOST",
+        "BACKEND_PORT",
+        "MONGODB_URI"
+      ]
     },
     "lint": {},
     "test": {},
