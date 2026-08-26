@@ -4,6 +4,7 @@ import {Nullable} from "@webui/common/utility-types";
 import {message} from "antd";
 import {create} from "zustand";
 
+import {TimelineBucket} from "../../../../components/ResultsTimeline/typings";
 import {downloadTextFile} from "../../../../utils/download";
 import {formatExportFilenameTimestamp} from "../../SearchResults/SearchResultsTable/Native/utils";
 import {formatPrestoResultAsJsonl} from "../../SearchResults/SearchResultsTable/Presto/PrestoResultsVirtualTable/utils";
@@ -18,6 +19,7 @@ const PRESTO_SEARCH_STATE_DEFAULT = Object.freeze({
     errorMsg: null,
     errorName: null,
     orderBy: "",
+    prestoAggregationResults: null as Nullable<TimelineBucket[]>,
     prestoSearchResults: null as Nullable<PrestoSearchResult[]>,
     queryDrawerOpen: false,
     select: "*",
@@ -51,6 +53,11 @@ interface PrestoSearchState {
      * ORDER BY input.
      */
     orderBy: string;
+
+    /**
+     * Current Presto timeline results streamed from the query engine.
+     */
+    prestoAggregationResults: Nullable<TimelineBucket[]>;
 
     /**
      * Current Presto search results for export.
@@ -87,6 +94,7 @@ interface PrestoSearchState {
     updateErrorMsg: (msg: Nullable<string>) => void;
     updateErrorName: (name: Nullable<string>) => void;
     updateOrderBy: (items: string) => void;
+    updatePrestoAggregationResults: (results: Nullable<TimelineBucket[]>) => void;
     updatePrestoSearchResults: (results: Nullable<PrestoSearchResult[]>) => void;
     updateQueryDrawerOpen: (open: boolean) => void;
     updateSelect: (items: string) => void;
@@ -129,6 +137,9 @@ const usePrestoSearchState = create<PrestoSearchState>((set, get) => ({
     },
     updateOrderBy: (items) => {
         set({orderBy: items});
+    },
+    updatePrestoAggregationResults: (results) => {
+        set({prestoAggregationResults: results});
     },
     updatePrestoSearchResults: (results) => {
         set({prestoSearchResults: results});

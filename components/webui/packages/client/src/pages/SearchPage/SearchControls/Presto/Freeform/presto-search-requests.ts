@@ -2,10 +2,12 @@ import {
     type PrestoQueryJob,
     type PrestoQueryJobCreation,
 } from "@webui/common/schemas/presto-search";
+import {notification} from "antd";
 
 import {
     cancelQuery,
-    clearQueryResults,
+    PrestoQueryError,
+    type PrestoQueryHandlers,
     submitQuery,
 } from "../../../../../api/presto-search";
 import useSearchStore, {SEARCH_STATE_DEFAULT} from "../../../SearchState";
@@ -15,27 +17,69 @@ import {SEARCH_UI_STATE} from "../../../SearchState/typings";
 
 
 /**
- * Clears current presto query results on server.
+ * Clears current Presto query results from client state.
  */
 const handlePrestoClearResults = () => {
-    const {searchUiState, searchJobId} = useSearchStore.getState();
+    usePrestoSearchState.getState().updatePrestoSearchResults(null);
+};
 
-    // In the starting state, there are no results to clear.
-    if (searchUiState === SEARCH_UI_STATE.DEFAULT) {
-        return;
-    }
+/**
+ * Creates callbacks that transfer a Presto result stream into the search stores.
+ *
+ * @return
+ */
+const getPrestoQueryHandlers = (): PrestoQueryHandlers => {
+    let queryId: string | null = null;
 
-    if (null === searchJobId) {
-        console.error("Cannot clear results: searchJobId is not set.");
+    return {
+        onData: (rows, totalResultsCount) => {
+            const {updateNumSearchResultsMetadata} = useSearchStore.getState();
+            const {prestoSearchResults, updatePrestoSearchResults} =
+                usePrestoSearchState.getState();
+            const existingResults = prestoSearchResults ?? [];
+            updatePrestoSearchResults([
+                ...existingResults,
+                ...rows.map((row, index) => ({
+                    _id: `${queryId}-${existingResults.length + index}`,
+                    row: row,
+                })),
+            ]);
+            updateNumSearchResultsMetadata(totalResultsCount);
+        },
+        onDone: () => {
+            const {searchJobId, searchUiState, updateSearchUiState} = useSearchStore.getState();
+            if (searchJobId === queryId && searchUiState === SEARCH_UI_STATE.QUERYING) {
+                updateSearchUiState(SEARCH_UI_STATE.DONE);
+            }
+        },
+        onError: (error: PrestoQueryError) => {
+            const errorName = error.errorName ?? "Search Failed";
+            const {searchJobId, updateSearchUiState} = useSearchStore.getState();
+            const {updateErrorMsg, updateErrorName} = usePrestoSearchState.getState();
 
-        return;
-    }
-
-    clearQueryResults(
-        {searchJobId}
-    ).catch((err: unknown) => {
-        console.error("Failed to clear query results:", err);
-    });
+            if (null !== queryId && searchJobId !== queryId) {
+                return;
+            }
+            updateErrorMsg(error.message);
+            updateErrorName(errorName);
+            updateSearchUiState(SEARCH_UI_STATE.FAILED);
+            notification.error({
+                description: error.message,
+                duration: 15,
+                key: `search-failed-${queryId ?? "pending"}`,
+                pauseOnHover: true,
+                placement: "bottomRight",
+                showProgress: true,
+                title: errorName,
+            });
+        },
+        onQueryStarted: (newQueryId) => {
+            queryId = newQueryId;
+            const {updateSearchJobId, updateSearchUiState} = useSearchStore.getState();
+            updateSearchJobId(newQueryId);
+            updateSearchUiState(SEARCH_UI_STATE.QUERYING);
+        },
+    };
 };
 
 /**
@@ -67,19 +111,10 @@ const handlePrestoQuerySubmit = (payload: PrestoQueryJobCreation) => {
 
     updateNumSearchResultsTable(SEARCH_STATE_DEFAULT.numSearchResultsTable);
     updateNumSearchResultsMetadata(SEARCH_STATE_DEFAULT.numSearchResultsMetadata);
+    updateSearchJobId(SEARCH_STATE_DEFAULT.searchJobId);
     updateSearchUiState(SEARCH_UI_STATE.QUERY_ID_PENDING);
 
-    submitQuery(payload)
-        .then((result) => {
-            const {searchJobId} = result.data;
-            updateSearchJobId(searchJobId);
-            updateSearchUiState(SEARCH_UI_STATE.QUERYING);
-            console.debug(
-                "Presto search job created - ",
-                "Search job ID:",
-                searchJobId
-            );
-        })
+    submitQuery(payload, getPrestoQueryHandlers())
         .catch((err: unknown) => {
             console.error("Failed to submit query:", err);
         });

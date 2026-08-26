@@ -2,7 +2,6 @@ import {Dayjs} from "dayjs";
 
 import {
     cancelQuery,
-    clearQueryResults,
     submitQuery,
 } from "../../../../../api/presto-search";
 import {MAX_DATA_POINTS_PER_TIMELINE} from "../../../../../components/ResultsTimeline/typings";
@@ -14,6 +13,10 @@ import useSearchStore, {SEARCH_STATE_DEFAULT} from "../../../SearchState";
 import usePrestoSearchState, {PRESTO_SEARCH_STATE_DEFAULT} from "../../../SearchState/Presto";
 import {PRESTO_SQL_INTERFACE} from "../../../SearchState/Presto/typings";
 import {SEARCH_UI_STATE} from "../../../SearchState/typings";
+import {
+    getGuidedAggregationHandlers,
+    getGuidedSearchHandlers,
+} from "./presto-guided-stream-handlers";
 
 
 /**
@@ -23,39 +26,14 @@ const DEFAULT_SEARCH_LIMIT = 1000;
 
 
 /**
- * Clears current presto guided query results on server.
+ * Clears current Presto guided query results from client state.
  */
 const handlePrestoGuidedClearResults = () => {
-    const {searchUiState, searchJobId, aggregationJobId} = useSearchStore.getState();
+    const {updatePrestoAggregationResults, updatePrestoSearchResults} =
+        usePrestoSearchState.getState();
 
-    // In the starting state, there are no results to clear.
-    if (searchUiState === SEARCH_UI_STATE.DEFAULT) {
-        return;
-    }
-
-    if (null === searchJobId) {
-        console.error("Cannot clear results: searchJobId is not set.");
-
-        return;
-    }
-
-    if (null === aggregationJobId) {
-        console.error("Cannot clear results: aggregationJobId is not set.");
-
-        return;
-    }
-
-    clearQueryResults(
-        {searchJobId: searchJobId}
-    ).catch((err: unknown) => {
-        console.error("Failed to clear query results:", err);
-    });
-
-    clearQueryResults(
-        {searchJobId: aggregationJobId}
-    ).catch((err: unknown) => {
-        console.error("Failed to clear aggregation results:", err);
-    });
+    updatePrestoSearchResults(null);
+    updatePrestoAggregationResults(null);
 };
 
 /**
@@ -118,6 +96,7 @@ const handlePrestoGuidedQuerySubmit = (searchQueryString: string, timelineQueryS
         updateNumSearchResultsTimeline,
         updateNumSearchResultsMetadata,
         updateSearchJobId,
+        updateAggregationJobId,
         updateSearchUiState,
         searchUiState,
     } = useSearchStore.getState();
@@ -142,38 +121,25 @@ const handlePrestoGuidedQuerySubmit = (searchQueryString: string, timelineQueryS
     updateNumSearchResultsTable(SEARCH_STATE_DEFAULT.numSearchResultsTable);
     updateNumSearchResultsTimeline(SEARCH_STATE_DEFAULT.numSearchResultsTimeline);
     updateNumSearchResultsMetadata(SEARCH_STATE_DEFAULT.numSearchResultsMetadata);
+    updateSearchJobId(SEARCH_STATE_DEFAULT.searchJobId);
+    updateAggregationJobId(SEARCH_STATE_DEFAULT.aggregationJobId);
     updateSearchUiState(SEARCH_UI_STATE.QUERY_ID_PENDING);
 
     updateErrorMsg(null);
     updateErrorName(null);
 
-    submitQuery({queryString: searchQueryString})
-        .then((result) => {
-            const {searchJobId} = result.data;
-            updateSearchJobId(searchJobId);
-            updateSearchUiState(SEARCH_UI_STATE.QUERYING);
-            console.debug(
-                "Presto search job created - ",
-                "Search job ID:",
-                searchJobId
-            );
-        })
+    submitQuery(
+        {queryString: searchQueryString},
+        getGuidedSearchHandlers()
+    )
         .catch((err: unknown) => {
             console.error("Failed to submit query:", err);
         });
 
-    submitQuery({queryString: timelineQueryString})
-        .then((result) => {
-            const {updateAggregationJobId} = useSearchStore.getState();
-
-            const {searchJobId: aggregationJobId} = result.data;
-            updateAggregationJobId(aggregationJobId);
-            console.debug(
-                "Presto aggregation job created - ",
-                "Aggregation job ID:",
-                aggregationJobId
-            );
-        })
+    submitQuery(
+        {queryString: timelineQueryString},
+        getGuidedAggregationHandlers()
+    )
         .catch((err: unknown) => {
             console.error("Failed to submit aggregation query:", err);
         });

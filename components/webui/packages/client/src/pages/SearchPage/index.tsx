@@ -9,7 +9,6 @@ import SearchResultsTable from "./SearchResults/SearchResultsTable";
 import SearchResultsTimeline from "./SearchResults/SearchResultsTimeline";
 import usePrestoSearchState from "./SearchState/Presto";
 import {PRESTO_SQL_INTERFACE} from "./SearchState/Presto/typings";
-import {useUpdateStateWithMetadata} from "./SearchState/useUpdateStateWithMetadata";
 
 
 /**
@@ -18,7 +17,6 @@ import {useUpdateStateWithMetadata} from "./SearchState/useUpdateStateWithMetada
  * @return
  */
 const SearchPage = () => {
-    useUpdateStateWithMetadata();
     const sqlInterface = usePrestoSearchState((state) => state.sqlInterface);
 
     return (
