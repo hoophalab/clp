@@ -3,6 +3,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as cdk from "aws-cdk-lib/core";
 import {Construct} from "constructs";
 
+import {DATABASE_SYSTEM_NAMESPACE} from "../database-constants";
 import {
     GATEWAY_SYSTEM_NAMESPACE,
     PARAMETER_STORE_NAME,
@@ -18,6 +19,7 @@ const SECRETS_MANAGER_STORE_NAME = "aws-secrets-manager";
 export interface ExternalSecretsResources {
     chart: eks.HelmChart;
     namespace: eks.KubernetesManifest;
+    role: iam.IRole;
     secretStore: eks.KubernetesManifest;
     secretStoreName: string;
     secretsManagerStore: eks.KubernetesManifest;
@@ -146,7 +148,12 @@ export const addExternalSecrets = function (
         kind: "ClusterSecretStore",
         metadata: {name: SECRETS_MANAGER_STORE_NAME},
         spec: {
-            conditions: [{namespaces: [GATEWAY_SYSTEM_NAMESPACE]}],
+            conditions: [{
+                namespaces: [
+                    DATABASE_SYSTEM_NAMESPACE,
+                    GATEWAY_SYSTEM_NAMESPACE,
+                ],
+            }],
             provider: {
                 aws: {
                     region: cdk.Stack.of(scope).region,
@@ -161,6 +168,7 @@ export const addExternalSecrets = function (
     return {
         chart: chart,
         namespace: namespace,
+        role: role,
         secretStore: secretStore,
         secretStoreName: PARAMETER_STORE_NAME,
         secretsManagerStore: secretsManagerStore,

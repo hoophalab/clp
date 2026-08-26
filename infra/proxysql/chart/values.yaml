@@ -1,0 +1,14 @@
+image:
+  repository: "proxysql/proxysql"
+  tag: "3.0.10"
+
+database:
+  host: "example.cluster.us-east-1.rds.amazonaws.com"
+  monitorSecretName: "proxysql-monitor"
+  port: 3306
+
+proxysql:
+  adminSecretName: "proxysql"
+  backendConnectionBudget: 100
+  maxFrontendConnections: 10000
+  replicas: 2

@@ -15,7 +15,7 @@ import {
 const DATABASE_BACKUP_DAYS = 7;
 const DATABASE_NAME = "auth";
 const DATABASE_PORT = 3307;
-const DATABASE_USERNAME = "auth_server";
+const DATABASE_ADMIN_USERNAME = "admin";
 
 export interface RdsStackProps extends ClusterScopedStackProps {
     vpc: ec2.IVpc;
@@ -32,7 +32,7 @@ export class RdsStack extends ClusterScopedStack {
 
     public readonly securityGroup: ec2.ISecurityGroup;
 
-    public readonly username = DATABASE_USERNAME;
+    public readonly username = DATABASE_ADMIN_USERNAME;
 
     // eslint-disable-next-line max-lines-per-function
     constructor (scope: Construct, id: string, props: RdsStackProps) {
@@ -45,7 +45,8 @@ export class RdsStack extends ClusterScopedStack {
         this.securityGroup.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN);
 
         const databaseSecret = new rds.DatabaseSecret(this, "DatabaseSecret", {
-            username: DATABASE_USERNAME,
+            excludeCharacters: ":;\\\"'",
+            username: DATABASE_ADMIN_USERNAME,
         });
 
         databaseSecret.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN);
@@ -95,7 +96,6 @@ export class RdsStack extends ClusterScopedStack {
                 reason: "Credential rotation requires coordinated service restarts.",
             }],
         );
-
         /* eslint-disable no-new */
         new cdk.CfnOutput(this, "SecretArn", {
             exportName: clusterExportName(props.clusterName, "DatabaseSecretArn"),

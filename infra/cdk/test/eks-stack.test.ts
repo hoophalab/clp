@@ -46,9 +46,9 @@ describe("EksStack", () => {
             rdsPort: 3307,
             rdsSecretArn:
                 "arn:aws:secretsmanager:us-east-1:123456789012:" +
-                "secret:test-auth-database",
+                "secret:test-auth-database-abcdef",
             rdsSecurityGroupId: "sg-0123456789abcdef0",
-            rdsUsername: "auth_server",
+            rdsUsername: "admin",
             vpc: vpcStack.vpc,
         });
 

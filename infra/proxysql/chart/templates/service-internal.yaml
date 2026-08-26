@@ -1,0 +1,18 @@
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: "proxysql-internal"
+  labels:
+    app.kubernetes.io/name: "proxysql"
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+spec:
+  clusterIP: "None"
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: "proxysql"
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+  ports:
+    - name: "admin"
+      port: 6032
+      protocol: "TCP"
+      targetPort: "admin"

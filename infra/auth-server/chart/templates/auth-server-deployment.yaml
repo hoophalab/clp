@@ -76,3 +76,4 @@ spec:
               app.kubernetes.io/instance: {{ .Release.Name | quote }}
           maxSkew: 1
           topologyKey: "topology.kubernetes.io/zone"
+          whenUnsatisfiable: "DoNotSchedule"

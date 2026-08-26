@@ -1,0 +1,17 @@
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: "proxysql"
+  labels:
+    app.kubernetes.io/name: "proxysql"
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+spec:
+  type: "ClusterIP"
+  selector:
+    app.kubernetes.io/name: "proxysql"
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+  ports:
+    - name: "mysql"
+      port: 6033
+      protocol: "TCP"
+      targetPort: "mysql"

@@ -4,6 +4,7 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as eks from "aws-cdk-lib/aws-eks";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as s3 from "aws-cdk-lib/aws-s3";
 import * as cdk from "aws-cdk-lib/core";
 import {NagSuppressions} from "cdk-nag";
 import {Construct} from "constructs";
@@ -23,6 +24,7 @@ import {
     CLOUDFLARE_API_TOKEN_SECRET_NAME,
     ENVOY_GATEWAY_SYSTEM_NAMESPACE,
 } from "./gateway";
+import {addSharedProxySql} from "./proxysql";
 
 
 const NODE_GROUP_AMI_TYPES: ReadonlySet<string> = new Set(
@@ -263,6 +265,17 @@ export class EksStack extends ClusterScopedStack {
 
         externalSecrets.chart.node.addDependency(nodeGroup);
 
+        const proxysql = addSharedProxySql({
+            cluster: this.cluster,
+            externalSecrets: externalSecrets,
+            rdsHost: props.rdsHost,
+            rdsPort: props.rdsPort,
+            rdsSecretArn: props.rdsSecretArn,
+            scope: this,
+        });
+
+        proxysql.chart.node.addDependency(nodeGroup);
+
         const externalDns = addExternalDns({
             chartVersion: props.externalDnsChartVersion,
             cluster: this.cluster,
@@ -387,6 +400,7 @@ export class EksStack extends ClusterScopedStack {
         gp3StorageClass.node.addDependency(ebsCsiDriverAddon);
     }
 
+    // eslint-disable-next-line max-lines-per-function
     private createKubectlRoles (
         props: EksStackProps,
     ): {
@@ -407,6 +421,34 @@ export class EksStack extends ClusterScopedStack {
                 ),
             ],
         });
+
+        const fileAssetsBucket = s3.Bucket.fromBucketName(
+            this,
+            "FileAssetsBucket",
+            `cdk-${cdk.DefaultStackSynthesizer.DEFAULT_QUALIFIER}-assets-${
+                cdk.Aws.ACCOUNT_ID
+            }-${cdk.Aws.REGION}`,
+        );
+
+        fileAssetsBucket.grantRead(kubectlLambdaRole);
+
+        // AwsSolutions-IAM5 flags IAM policy statements with wildcard actions
+        // or resources unless a suppression explains why those wildcard
+        // permissions are required.
+        //
+        // Suppress it here because the shared Helm provider must read
+        // content-addressed charts from the CDK file asset bucket.
+        NagSuppressions.addResourceSuppressionsByPath(
+            this,
+            `/${this.node.path}/KubectlLambdaRole/DefaultPolicy/Resource`,
+            [
+                {
+                    id: "AwsSolutions-IAM5",
+                    reason: "The shared Helm provider reads content-addressed " +
+                        "charts from the CDK file asset bucket.",
+                },
+            ],
+        );
 
         // AwsSolutions-IAM4 flags IAM users, roles, or groups that use
         // AWS-managed policies.

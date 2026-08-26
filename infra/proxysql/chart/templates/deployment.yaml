@@ -1,0 +1,218 @@
+apiVersion: "apps/v1"
+kind: "StatefulSet"
+metadata:
+  name: "proxysql"
+  labels:
+    app.kubernetes.io/name: "proxysql"
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+spec:
+  replicas: {{ .Values.proxysql.replicas }}
+  serviceName: "proxysql-internal"
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "proxysql"
+      app.kubernetes.io/instance: {{ .Release.Name | quote }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "proxysql"
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    spec:
+      initContainers:
+        - name: "provision-monitor-user"
+          image: {{ printf "%s:%s" .Values.image.repository .Values.image.tag | quote }}
+          imagePullPolicy: "IfNotPresent"
+          env:
+            - name: "DATABASE_ADMIN_USERNAME"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.proxysql.adminSecretName | quote }}
+                  key: "database-admin-username"
+            - name: "DATABASE_HOST"
+              value: {{ .Values.database.host | quote }}
+            - name: "DATABASE_MONITOR_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.monitorSecretName | quote }}
+                  key: "password"
+            - name: "DATABASE_MONITOR_USERNAME"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.monitorSecretName | quote }}
+                  key: "username"
+            - name: "DATABASE_PORT"
+              value: {{ .Values.database.port | quote }}
+            - name: "MYSQL_PWD"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.proxysql.adminSecretName | quote }}
+                  key: "database-admin-password"
+          command:
+            - "/bin/sh"
+            - "-ec"
+            - |
+              mariadb \
+                --host="$DATABASE_HOST" \
+                --port="$DATABASE_PORT" \
+                --protocol="TCP" \
+                --ssl \
+                --user="$DATABASE_ADMIN_USERNAME" <<EOF
+              CREATE USER IF NOT EXISTS '$DATABASE_MONITOR_USERNAME'@'%' IDENTIFIED BY '$DATABASE_MONITOR_PASSWORD';
+              ALTER USER '$DATABASE_MONITOR_USERNAME'@'%' IDENTIFIED BY '$DATABASE_MONITOR_PASSWORD';
+              GRANT USAGE ON *.* TO '$DATABASE_MONITOR_USERNAME'@'%';
+              EOF
+        - name: "configure"
+          image: {{ printf "%s:%s" .Values.image.repository .Values.image.tag | quote }}
+          imagePullPolicy: "IfNotPresent"
+          env:
+            - name: "DATABASE_ADMIN_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.proxysql.adminSecretName | quote }}
+                  key: "database-admin-password"
+            - name: "DATABASE_ADMIN_USERNAME"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.proxysql.adminSecretName | quote }}
+                  key: "database-admin-username"
+            - name: "DATABASE_HOST"
+              value: {{ .Values.database.host | quote }}
+            - name: "DATABASE_MONITOR_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.monitorSecretName | quote }}
+                  key: "password"
+            - name: "DATABASE_MONITOR_USERNAME"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.monitorSecretName | quote }}
+                  key: "username"
+            - name: "DATABASE_PORT"
+              value: {{ .Values.database.port | quote }}
+            - name: "PROXYSQL_ADMIN_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.proxysql.adminSecretName | quote }}
+                  key: "proxysql-admin-password"
+          command:
+            - "/bin/sh"
+            - "-ec"
+            - |
+              cat > /config/proxysql.cnf <<EOF
+              datadir="/var/lib/proxysql"
+
+              admin_variables =
+              {
+                admin_credentials="admin:$PROXYSQL_ADMIN_PASSWORD;provisioner:$PROXYSQL_ADMIN_PASSWORD"
+                mysql_ifaces="0.0.0.0:6032"
+              }
+
+              mysql_variables =
+              {
+                interfaces="0.0.0.0:6033"
+                max_connections={{ .Values.proxysql.maxFrontendConnections }}
+                connect_retries_on_failure=10
+                monitor_enabled=true
+                monitor_username="$DATABASE_MONITOR_USERNAME"
+                monitor_password="$DATABASE_MONITOR_PASSWORD"
+              }
+
+              mysql_servers =
+              (
+                {
+                  address="$DATABASE_HOST",
+                  port=$DATABASE_PORT,
+                  hostgroup=0,
+                  max_connections={{ div .Values.proxysql.backendConnectionBudget .Values.proxysql.replicas }},
+                  use_ssl=1
+                }
+              )
+
+              mysql_users =
+              (
+                {
+                  username="$DATABASE_ADMIN_USERNAME",
+                  password="$DATABASE_ADMIN_PASSWORD",
+                  active=1,
+                  default_hostgroup=0,
+                  transaction_persistent=1,
+                  max_connections=100
+                }
+              )
+              EOF
+          volumeMounts:
+            - name: "config"
+              mountPath: "/config"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: "proxysql"
+                    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+                topologyKey: "kubernetes.io/hostname"
+      containers:
+        - name: "proxysql"
+          image: {{ printf "%s:%s" .Values.image.repository .Values.image.tag | quote }}
+          imagePullPolicy: "IfNotPresent"
+          command:
+            - "proxysql"
+          args:
+            - "-f"
+            - "-c"
+            - "/etc/proxysql.cnf"
+            - "--idle-threads"
+            - "--reload"
+          ports:
+            - name: "admin"
+              containerPort: 6032
+              protocol: "TCP"
+            - name: "mysql"
+              containerPort: 6033
+              protocol: "TCP"
+          readinessProbe:
+            tcpSocket:
+              port: "mysql"
+            initialDelaySeconds: 2
+            periodSeconds: 2
+          livenessProbe:
+            tcpSocket:
+              port: "mysql"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              memory: "512Mi"
+          volumeMounts:
+            - name: "config"
+              mountPath: "/etc/proxysql.cnf"
+              subPath: "proxysql.cnf"
+              readOnly: true
+            - name: "data"
+              mountPath: "/var/lib/proxysql"
+      volumes:
+        - name: "config"
+          emptyDir:
+            medium: "Memory"
+      topologySpreadConstraints:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: "proxysql"
+              app.kubernetes.io/instance: {{ .Release.Name | quote }}
+          maxSkew: 1
+          topologyKey: "topology.kubernetes.io/zone"
+          whenUnsatisfiable: "ScheduleAnyway"
+  volumeClaimTemplates:
+    - metadata:
+        name: "data"
+      spec:
+        accessModes:
+          - "ReadWriteOnce"
+        resources:
+          requests:
+            storage: "1Gi"
