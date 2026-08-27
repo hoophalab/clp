@@ -1,7 +1,6 @@
 import dayjs, {Dayjs} from "dayjs";
 
 import {apiClient} from "../../../../api/search";
-import {DEFAULT_TIME_RANGE} from "./utils";
 
 
 /**
@@ -20,10 +19,6 @@ const fetchAllTimeRange = async (selectedDatasets: string[]): Promise<[Dayjs, Da
 
     if ("undefined" === typeof data) {
         throw new Error(`Failed to fetch time range: HTTP ${response.status}`);
-    }
-
-    if (null === data.begin_timestamp || null === data.end_timestamp) {
-        return DEFAULT_TIME_RANGE;
     }
 
     return [

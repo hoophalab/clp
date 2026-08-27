@@ -65,6 +65,223 @@
         }
       }
     },
+    "/metadata/column_metadata/{dataset_name}/timestamp": {
+      "get": {
+        "tags": [],
+        "description": "Gets the timestamp column names for a given dataset (CLP-S only).",
+        "operationId": "timestamp_column_names",
+        "parameters": [
+          {
+            "name": "dataset_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid dataset name"
+          },
+          "404": {
+            "description": "Dataset not found"
+          },
+          "500": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/metadata/compression_jobs": {
+      "get": {
+        "tags": [],
+        "description": "Gets recent compression-job metadata (most recent first), with the decoded CLP IO config for each job.",
+        "operationId": "compression_metadata",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CompressionMetadata"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/metadata/datasets": {
+      "get": {
+        "tags": [],
+        "description": "Gets the names of all datasets.",
+        "operationId": "datasets",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/metadata/ingestion_details": {
+      "get": {
+        "tags": [],
+        "description": "Gets ingestion details (timestamp range, file count, message count) across all datasets.",
+        "operationId": "ingestion_details",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestionDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/metadata/query_speed": {
+      "get": {
+        "tags": [],
+        "description": "Gets the query speed (total uncompressed bytes scanned and job duration) for a search job across the given datasets.",
+        "operationId": "query_speed",
+        "parameters": [
+          {
+            "name": "dataset",
+            "in": "query",
+            "description": "Comma-separated list of dataset names (CLP-S only). Ignored for the CLP storage engine.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_job_id",
+            "in": "query",
+            "description": "The search job ID whose scan speed should be computed.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuerySpeed"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid dataset name"
+          },
+          "500": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/metadata/space_savings": {
+      "get": {
+        "tags": [],
+        "description": "Gets aggregated space-savings statistics (total uncompressed and compressed sizes) across all datasets.",
+        "operationId": "space_savings",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpaceSavings"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/metadata/time_range": {
+      "get": {
+        "tags": [],
+        "description": "Gets the earliest and latest log entry timestamps across the given datasets. For the CLP storage engine, the `dataset` parameter is ignored.",
+        "operationId": "time_range",
+        "parameters": [
+          {
+            "name": "dataset",
+            "in": "query",
+            "description": "Comma-separated list of dataset names (CLP-S only). Ignored for the CLP storage engine.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeRange"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid dataset name"
+          },
+          "500": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/os/ls": {
       "get": {
         "tags": [],

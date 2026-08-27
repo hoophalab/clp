@@ -1,19 +1,25 @@
-use std::io::Write;
-
 use anyhow::Result;
 use clap::Parser;
 use serde_json::to_string_pretty;
 use utoipa::OpenApi;
 
 #[derive(Parser)]
-#[command(version, about = "Generate openapi.json")]
+#[command(version, about = "Generate public and WebUI OpenAPI documents")]
 struct Args {
-    path: String,
+    public_path: String,
+    webui_path: String,
 }
 
 fn main() -> Result<()> {
-    let mut file = std::fs::File::create(Args::parse().path)?;
-    let api = api_server::routes::ApiDoc::openapi();
-    write!(file, "{}", to_string_pretty(&api)?)?;
+    let args = Args::parse();
+    let webui_api = api_server::routes::ApiDoc::openapi();
+    let mut public_api = webui_api.clone();
+    public_api
+        .paths
+        .paths
+        .retain(|path, _| !path.starts_with("/metadata"));
+
+    std::fs::write(args.public_path, to_string_pretty(&public_api)?)?;
+    std::fs::write(args.webui_path, to_string_pretty(&webui_api)?)?;
     Ok(())
 }

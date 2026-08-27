@@ -95,7 +95,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Gets ingestion details (timestamp range, file count, message count) across the given datasets. For the CLP storage engine, the `dataset` parameter is ignored. */
+        /** @description Gets ingestion details (timestamp range, file count, message count) across all datasets. */
         get: operations["ingestion_details"];
         put?: never;
         post?: never;
@@ -129,7 +129,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Gets aggregated space-savings statistics (total uncompressed and compressed sizes) across the given datasets. For the CLP storage engine, the `dataset` parameter is ignored. */
+        /** @description Gets aggregated space-savings statistics (total uncompressed and compressed sizes) across all datasets. */
         get: operations["space_savings"];
         put?: never;
         post?: never;
@@ -452,9 +452,9 @@ export interface components {
         /** @description Earliest and latest log entry timestamps across the selected datasets. */
         TimeRange: {
             /** Format: int64 */
-            begin_timestamp?: number | null;
+            begin_timestamp: number;
             /** Format: int64 */
-            end_timestamp?: number | null;
+            end_timestamp: number;
         };
     };
     responses: never;
@@ -614,10 +614,7 @@ export interface operations {
     };
     ingestion_details: {
         parameters: {
-            query?: {
-                /** @description Comma-separated list of dataset names (CLP-S only). Ignored for the CLP storage engine. */
-                dataset?: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -631,13 +628,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["IngestionDetails"];
                 };
-            };
-            /** @description Invalid dataset name */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             500: {
                 headers: {
@@ -686,10 +676,7 @@ export interface operations {
     };
     space_savings: {
         parameters: {
-            query?: {
-                /** @description Comma-separated list of dataset names (CLP-S only). Ignored for the CLP storage engine. */
-                dataset?: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -703,13 +690,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SpaceSavings"];
                 };
-            };
-            /** @description Invalid dataset name */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             500: {
                 headers: {

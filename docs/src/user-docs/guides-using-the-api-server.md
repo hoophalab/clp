@@ -9,8 +9,8 @@ a default configuration. You can uncomment and modify this section to override t
 
 ## API reference
 
-All available API endpoints are defined in the [OpenAPI] Specification. You can explore the API
-using [Swagger UI][swagger-ui].
+All public API endpoints are defined in the [OpenAPI] Specification. You can explore the API using
+[Swagger UI][swagger-ui].
 
 :::{note}
 `clp-text` doesn't support buffering search results in the file system or S3. When using
