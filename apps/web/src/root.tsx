@@ -11,6 +11,8 @@ import type {Route} from "./+types/root";
 
 import "./styles.css";
 
+import {TooltipProvider} from "~/components/ui/tooltip";
+
 
 const NOT_FOUND_STATUS_CODE = 404;
 
@@ -49,9 +51,11 @@ const Layout = ({children}: {children: React.ReactNode}) => {
                 <Links/>
             </head>
             <body className={"relative"}>
-                <div className={"isolate"}>
-                    {children}
-                </div>
+                <TooltipProvider>
+                    <div className={"isolate"}>
+                        {children}
+                    </div>
+                </TooltipProvider>
                 <ScrollRestoration/>
                 <Scripts/>
             </body>
