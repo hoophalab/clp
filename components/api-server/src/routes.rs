@@ -52,7 +52,7 @@ pub struct AppState {
 ///
 /// * Forwards [`OpenApi::to_json`]'s return values on failure.
 pub fn from_app_state(state: AppState) -> Result<axum::Router, serde_json::Error> {
-    let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
+    let (router, _) = OpenApiRouter::with_openapi(WebUiApiDoc::openapi())
         .route("/", get(health))
         .routes(routes!(health))
         .routes(routes!(query))
@@ -62,7 +62,7 @@ pub fn from_app_state(state: AppState) -> Result<axum::Router, serde_json::Error
         .merge(metadata::router())
         .with_state(state)
         .split_for_parts();
-    let api_json = api.to_json()?;
+    let api_json = ApiDoc::openapi().to_json()?;
     let router = router
         .route(
             "/openapi.json",
@@ -113,6 +113,18 @@ mod api_doc {
             description = "API Server for CLP",
             contact(name = "YScope")
         ),
+        paths(health, query, query_results, cancel_query, compression_usage),
+        components(schemas(CompressionUsage, CompressionJobStatus))
+    )]
+    pub struct ApiDoc;
+
+    #[derive(utoipa::OpenApi)]
+    #[openapi(
+        info(
+            title = "API Server",
+            description = "API Server for CLP",
+            contact(name = "YScope")
+        ),
         paths(
             health,
             query,
@@ -146,7 +158,7 @@ mod api_doc {
             TimeRange,
         ))
     )]
-    pub struct ApiDoc;
+    pub struct WebUiApiDoc;
 }
 pub use api_doc::*;
 

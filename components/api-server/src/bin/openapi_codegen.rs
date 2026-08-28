@@ -12,12 +12,8 @@ struct Args {
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let webui_api = api_server::routes::ApiDoc::openapi();
-    let mut public_api = webui_api.clone();
-    public_api
-        .paths
-        .paths
-        .retain(|path, _| !path.starts_with("/metadata"));
+    let public_api = api_server::routes::ApiDoc::openapi();
+    let webui_api = api_server::routes::WebUiApiDoc::openapi();
 
     std::fs::write(args.public_path, to_string_pretty(&public_api)?)?;
     std::fs::write(args.webui_path, to_string_pretty(&webui_api)?)?;
