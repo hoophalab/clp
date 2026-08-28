@@ -257,21 +257,25 @@ pub struct StreamFileExtraction {
 pub struct MetadataClient {
     mongodb_client: mongodb::Client,
     sql_pool: sqlx::Pool<sqlx::MySql>,
+    stream_output_s3_client: Option<aws_sdk_s3::Client>,
     config: Config,
 }
 
 impl MetadataClient {
-    /// Creates a metadata client using the supplied shared database clients.
+    /// Creates a metadata client using the supplied shared database clients and the S3
+    /// client for stream-output operations (`None` when stream output is filesystem-backed).
     #[must_use]
     pub fn new(
         config: &Config,
         mongodb_client: mongodb::Client,
         sql_pool: sqlx::Pool<sqlx::MySql>,
+        stream_output_s3_client: Option<aws_sdk_s3::Client>,
     ) -> Self {
         Self {
             config: config.clone(),
             mongodb_client,
             sql_pool,
+            stream_output_s3_client,
         }
     }
 
@@ -303,11 +307,27 @@ impl MetadataClient {
         );
         let mongo_client = mongodb::Client::with_uri_str(mongo_uri).await?;
 
-        Ok(Self {
-            config: config.clone(),
-            mongodb_client: mongo_client,
+        let stream_output_s3_client = match &config.stream_output.storage {
+            StreamOutputStorage::S3 { s3_config, .. } => Some(
+                clp_rust_utils::s3::create_new_client(
+                    s3_config
+                        .region_code
+                        .as_ref()
+                        .map_or(AWS_DEFAULT_REGION, non_empty_string::NonEmptyString::as_str),
+                    s3_config.endpoint_url.as_ref(),
+                    &s3_config.aws_authentication,
+                )
+                .await,
+            ),
+            StreamOutputStorage::Fs { .. } => None,
+        };
+
+        Ok(Self::new(
+            config,
+            mongo_client,
             sql_pool,
-        })
+            stream_output_s3_client,
+        ))
     }
 
     /// Builds a metadata table name, mirroring
@@ -920,29 +940,19 @@ impl MetadataClient {
     ///
     /// Returns an error if:
     ///
-    /// * [`ClientError::Aws`] if a region code is not provided when using the default AWS S3
-    ///   endpoint, or if a pre-signed URL couldn't be generated.
+    /// * [`ClientError::Aws`] if the stream-output S3 client was not configured, or if a
+    ///   pre-signed URL couldn't be generated.
     async fn generate_presigned_stream_url(
         &self,
         s3_config: &S3Config,
         path: &str,
     ) -> Result<String, ClientError> {
-        if s3_config.region_code.is_none() && s3_config.endpoint_url.is_none() {
-            return Err(ClientError::Aws {
-                description: "a region code must be given when using the default AWS S3 endpoint"
-                    .to_owned(),
-            });
-        }
-        let region = s3_config
-            .region_code
+        let s3_client = self
+            .stream_output_s3_client
             .as_ref()
-            .map_or(AWS_DEFAULT_REGION, non_empty_string::NonEmptyString::as_str);
-        let s3_client = clp_rust_utils::s3::create_new_client(
-            region,
-            s3_config.endpoint_url.as_ref(),
-            &s3_config.aws_authentication,
-        )
-        .await;
+            .ok_or_else(|| ClientError::Aws {
+                description: "the stream-output S3 client was not configured".to_owned(),
+            })?;
         let presigning_config =
             PresigningConfig::expires_in(Duration::from_secs(PRE_SIGNED_URL_EXPIRY_TIME_SECONDS))
                 .map_err(|err| ClientError::Aws {

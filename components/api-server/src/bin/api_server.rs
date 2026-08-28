@@ -1,6 +1,8 @@
 use anyhow::Context;
 use clap::Parser;
+use clp_rust_utils::aws::AWS_DEFAULT_REGION;
 use clp_rust_utils::clp_config::package;
+use clp_rust_utils::clp_config::package::config::StreamOutputStorage;
 use clp_rust_utils::database::mysql::create_clp_db_mysql_pool;
 use clp_rust_utils::serde::yaml;
 
@@ -85,8 +87,26 @@ async fn main() -> anyhow::Result<()> {
         .context("Cannot connect to MongoDB")?;
 
     let client = api_server::client::Client::new(&config, mongodb_client.clone(), sql_pool.clone());
-    let metadata_client =
-        api_server::metadata_client::MetadataClient::new(&config, mongodb_client, sql_pool);
+    let stream_output_s3_client = match &config.stream_output.storage {
+        StreamOutputStorage::S3 { s3_config, .. } => Some(
+            clp_rust_utils::s3::create_new_client(
+                s3_config
+                    .region_code
+                    .as_ref()
+                    .map_or(AWS_DEFAULT_REGION, non_empty_string::NonEmptyString::as_str),
+                s3_config.endpoint_url.as_ref(),
+                &s3_config.aws_authentication,
+            )
+            .await,
+        ),
+        StreamOutputStorage::Fs { .. } => None,
+    };
+    let metadata_client = api_server::metadata_client::MetadataClient::new(
+        &config,
+        mongodb_client,
+        sql_pool,
+        stream_output_s3_client,
+    );
 
     let router = api_server::routes::from_app_state(api_server::routes::AppState {
         client,
