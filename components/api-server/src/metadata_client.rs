@@ -1,18 +1,19 @@
-//! A client dedicated to metadata, compression-job, and stream-file operations.
-//!
-//! This is intentionally separate from [`crate::client::Client`] (which handles search
-//! query orchestration) so that the metadata access surface stays independent and easy to
-//! reason about.
-
 use std::path::PathBuf;
+use std::time::Duration;
 
+use aws_sdk_s3::presigning::PresigningConfig;
 use chrono::DateTime;
 use chrono::Utc;
+use clp_rust_utils::aws::AWS_DEFAULT_REGION;
+use clp_rust_utils::clp_config::S3Config;
 use clp_rust_utils::clp_config::package::config::Config;
+use clp_rust_utils::clp_config::package::config::LogsInput;
 use clp_rust_utils::clp_config::package::config::StorageEngine;
+use clp_rust_utils::clp_config::package::config::StreamOutputStorage;
 use clp_rust_utils::clp_config::package::credentials::Credentials;
 use clp_rust_utils::database::mysql::create_clp_db_mysql_pool;
 use clp_rust_utils::dataset::VALID_DATASET_NAME_REGEX;
+use clp_rust_utils::job_config::QueryJobStatus;
 use mongodb::bson::doc;
 use num_enum::IntoPrimitive;
 use num_enum::TryFromPrimitive;
@@ -23,11 +24,8 @@ use utoipa::ToSchema;
 
 use crate::error::ClientError;
 
-/// Mirror of `job_orchestration.scheduler.constants.QueryJobType`.
-///
-/// Kept in sync with [`clp_rust_utils::job_config::QueryJobType`] but defined here so the
-/// API schema can reference it without pulling the whole job-config module into the public
-/// surface.
+/// Mirror of the extract variants of `job_orchestration.scheduler.constants.QueryJobType`.
+/// Must be kept in sync with [`clp_rust_utils::job_config::QueryJobType`].
 #[derive(
     Clone,
     Copy,
@@ -46,9 +44,11 @@ pub enum ExtractJobType {
     ExtractJson = 2,
 }
 
-/// Schema mirror of `NodeType::DeprecatedDateString` and `NodeType::Timestamp` in
+/// Schema mirror of `NodeType::DeprecatedDateString` in
 /// `components/core/src/clp_s/SchemaTree.hpp`.
 const DEPRECATED_TIMESTAMP_TYPE: i8 = 8;
+
+/// Schema mirror of `NodeType::Timestamp` in `components/core/src/clp_s/SchemaTree.hpp`.
 const TIMESTAMP_TYPE: i8 = 14;
 
 /// Maximum number of compression-metadata rows to return.
@@ -74,6 +74,7 @@ pub struct CompressionJobCreation {
 /// Response body containing the ID of a newly created compression job.
 #[derive(Clone, Serialize, Deserialize, ToSchema)]
 pub struct CompressionJob {
+    /// The ID of the newly created compression job.
     pub job_id: i64,
 }
 
@@ -83,12 +84,20 @@ pub struct CompressionMetadata {
     /// The compression job's ID. Named `_id` to match the webui's existing JSON contract.
     #[allow(clippy::pub_underscore_fields)]
     pub _id: i64,
+    /// Current status of the job. Matches `CompressionJobStatus` in
+    /// `job_orchestration.scheduler.constants`.
     pub status: i32,
+    /// Status message for the job.
     pub status_msg: String,
+    /// Time the job started executing (RFC 3339). Absent if the job hasn't started.
     pub start_time: Option<String>,
+    /// Time the job was last updated (RFC 3339).
     pub update_time: String,
+    /// Wall-clock duration the job ran, in seconds. Absent if the job did not complete.
     pub duration: Option<f64>,
+    /// Total uncompressed size of input files, in bytes.
     pub uncompressed_size: i64,
+    /// Total compressed archive size, in bytes.
     pub compressed_size: i64,
     /// Decoded CLP IO config (as a JSON value) since the stored config is a zstd-compressed
     /// msgpack blob.
@@ -98,36 +107,97 @@ pub struct CompressionMetadata {
 /// Aggregated space-savings statistics.
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct SpaceSavings {
+    /// Total uncompressed size of all archives, in bytes.
     pub total_uncompressed_size: i64,
+    /// Total compressed size of all archives, in bytes.
     pub total_compressed_size: i64,
 }
 
-/// Ingestion details statistics.
+impl TryFrom<sqlx::mysql::MySqlRow> for SpaceSavings {
+    type Error = sqlx::Error;
+
+    /// # Errors
+    ///
+    /// Returns [`sqlx::Error`] if a column cannot be decoded.
+    fn try_from(row: sqlx::mysql::MySqlRow) -> Result<Self, Self::Error> {
+        Ok(Self {
+            total_uncompressed_size: row.try_get("total_uncompressed_size")?,
+            total_compressed_size: row.try_get("total_compressed_size")?,
+        })
+    }
+}
+
+/// Ingestion details statistics. The whole value is `None` when no data has been ingested
+/// yet.
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct IngestionDetails {
-    pub begin_timestamp: Option<i64>,
-    pub end_timestamp: Option<i64>,
-    pub num_files: Option<i64>,
-    pub num_messages: Option<i64>,
+    /// Earliest log entry timestamp (epoch milliseconds).
+    pub begin_timestamp: i64,
+    /// Latest log entry timestamp (epoch milliseconds).
+    pub end_timestamp: i64,
+    /// Number of distinct ingested files.
+    pub num_files: i64,
+    /// Total number of ingested messages.
+    pub num_messages: i64,
 }
 
-/// Query-speed statistics for a search job.
+impl TryFrom<sqlx::mysql::MySqlRow> for IngestionDetails {
+    type Error = sqlx::Error;
+
+    /// # Errors
+    ///
+    /// Returns [`sqlx::Error`] if any column is NULL (i.e. no data has been ingested yet).
+    fn try_from(row: sqlx::mysql::MySqlRow) -> Result<Self, Self::Error> {
+        Ok(Self {
+            begin_timestamp: row.try_get("begin_timestamp")?,
+            end_timestamp: row.try_get("end_timestamp")?,
+            num_files: row.try_get("num_files")?,
+            num_messages: row.try_get("num_messages")?,
+        })
+    }
+}
+
+/// Query-speed statistics for a search job. The whole value is `None` until the job has
+/// scanned archives and finished (its duration is recorded only on completion).
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct QuerySpeed {
-    pub bytes: Option<f64>,
-    pub duration: Option<f64>,
+    /// Total uncompressed size of the archives the job scanned, in bytes.
+    pub bytes: f64,
+    /// Wall-clock duration the job ran, in seconds.
+    pub duration: f64,
 }
 
-/// Earliest and latest log entry timestamps across the selected datasets.
+impl TryFrom<sqlx::mysql::MySqlRow> for QuerySpeed {
+    type Error = sqlx::Error;
+
+    /// # Errors
+    ///
+    /// Returns [`sqlx::Error`] if a column is NULL (`duration` is NULL until the job
+    /// finishes).
+    fn try_from(row: sqlx::mysql::MySqlRow) -> Result<Self, Self::Error> {
+        Ok(Self {
+            bytes: row.try_get("bytes")?,
+            duration: row.try_get("duration")?,
+        })
+    }
+}
+
+/// Earliest and latest log entry timestamps across the selected datasets. The whole value
+/// is `None` when no archives exist yet (or, for CLP-S, when no datasets were selected).
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct TimeRange {
+    /// Earliest log entry timestamp (epoch milliseconds).
     pub begin_timestamp: i64,
+    /// Latest log entry timestamp (epoch milliseconds).
     pub end_timestamp: i64,
 }
 
 impl TryFrom<sqlx::mysql::MySqlRow> for TimeRange {
     type Error = sqlx::Error;
 
+    /// # Errors
+    ///
+    /// Returns [`sqlx::Error`] if either timestamp is NULL (i.e. no archives exist yet).
     fn try_from(row: sqlx::mysql::MySqlRow) -> Result<Self, Self::Error> {
         Ok(Self {
             begin_timestamp: row.try_get("begin_timestamp")?,
@@ -137,20 +207,32 @@ impl TryFrom<sqlx::mysql::MySqlRow> for TimeRange {
 }
 
 /// A directory entry returned by the file-listing endpoint.
+///
+/// Serialized in camelCase to match the webui's existing `FileEntry` JSON contract.
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct DirEntry {
+    /// Whether the entry is a directory or symlink that can be expanded.
     pub is_expandable: bool,
+    /// The entry's file name.
     pub name: String,
+    /// Path of the directory containing the entry.
     pub parent_path: String,
 }
 
 /// Extracted stream-file metadata returned by the stream-files extract endpoint.
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct StreamFileMetadata {
+    /// Index of the first log event in the stream file (inclusive).
     pub begin_msg_ix: i64,
+    /// Index of the last log event in the stream file (exclusive).
     pub end_msg_ix: i64,
+    /// Whether this is the stream's last chunk.
     pub is_last_chunk: bool,
+    /// The resolved stream-file path: a pre-signed URL when stream-files S3 storage is
+    /// configured, otherwise a path relative to the webui `/streams` static mount.
     pub path: String,
+    /// ID of the stream the file was extracted from.
     pub stream_id: String,
 }
 
@@ -158,17 +240,18 @@ pub struct StreamFileMetadata {
 #[derive(Clone, Debug, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StreamFileExtraction {
+    /// Dataset the stream belongs to (CLP-S only; `null` for the CLP storage engine).
     #[serde(default)]
     pub dataset: Option<String>,
+    /// The type of extraction job to submit.
     pub extract_job_type: ExtractJobType,
+    /// Index of the log event the extracted stream file must contain.
     pub log_event_idx: i64,
+    /// ID of the stream to extract.
     pub stream_id: String,
 }
 
 /// A dedicated client for metadata, compression-job, and stream-file operations.
-///
-/// Unlike [`crate::client::Client`], this client does not handle search query orchestration;
-/// it only reads metadata and submits compression/extract jobs.
 #[derive(Clone)]
 pub struct MetadataClient {
     mongodb_client: mongodb::Client,
@@ -193,6 +276,10 @@ impl MetadataClient {
 
     /// Factory method to create a new [`MetadataClient`] with active connections to both
     /// `MySQL` and `MongoDB`.
+    ///
+    /// # Returns
+    ///
+    /// A newly created [`MetadataClient`] instance with active connections to both databases.
     ///
     /// # Errors
     ///
@@ -222,20 +309,34 @@ impl MetadataClient {
         })
     }
 
-    fn files_table(&self, dataset: Option<&str>) -> String {
-        let db = &self.config.database;
-        format!(
-            "{}{}_files",
-            db.table_prefix,
-            dataset.unwrap_or(clp_rust_utils::dataset::CLP_DEFAULT_DATASET_NAME)
+    /// Builds a metadata table name, mirroring
+    /// `clp_py_utils.clp_metadata_db_utils._get_table_name`.
+    ///
+    /// # Returns
+    ///
+    /// The table name in the form `<prefix>[<dataset>_]<suffix>`. Unlike the helpers in
+    /// `clp_rust_utils`, `None` omits the dataset segment entirely (the CLP storage engine's
+    /// tables, e.g. `clp_archives`, have no dataset segment) instead of resolving to the
+    /// default dataset.
+    fn table_name(&self, dataset: Option<&str>, suffix: &str) -> String {
+        let prefix = &self.config.database.table_prefix;
+        dataset.map_or_else(
+            || format!("{prefix}{suffix}"),
+            |dataset| format!("{prefix}{dataset}_{suffix}"),
         )
     }
 
-    /// Fetches all dataset names from the datasets table, ordered by name.
+    /// Fetches all dataset names from the datasets table.
+    ///
+    /// # Returns
+    ///
+    /// The dataset names, ordered by name.
     ///
     /// # Errors
     ///
-    /// Forwards [`sqlx::query::Query::fetch_all`]'s return values on failure.
+    /// Returns an error if:
+    ///
+    /// * Forwards [`sqlx::query::Query::fetch_all`]'s return values on failure.
     pub async fn get_dataset_names(&self) -> Result<Vec<String>, ClientError> {
         let table = self.config.database.datasets_table_name();
         let names: Vec<String> =
@@ -248,15 +349,23 @@ impl MetadataClient {
     /// Fetches the earliest and latest log entry timestamps across the given datasets.
     ///
     /// For the CLP storage engine, `datasets` is ignored and the single `clp_archives` table
-    /// is queried. For CLP-S, the union of the per-dataset archives tables is queried; an
-    /// empty `datasets` list returns an error.
+    /// is queried. For CLP-S, the union of the per-dataset archives tables is queried.
+    ///
+    /// # Returns
+    ///
+    /// The earliest and latest log entry timestamps, or `None` when no archives exist yet
+    /// (or, for CLP-S, when `datasets` is empty).
     ///
     /// # Errors
     ///
-    /// Returns [`ClientError::InvalidDatasetName`] if any dataset name is invalid.
-    /// Returns an error if either timestamp is missing.
-    /// Forwards [`sqlx::query::Query::fetch_one`]'s return values on failure.
-    pub async fn get_time_range(&self, datasets: &[String]) -> Result<TimeRange, ClientError> {
+    /// Returns an error if:
+    ///
+    /// * [`ClientError::InvalidDatasetName`] if any dataset name is invalid.
+    /// * Forwards [`sqlx::query::Query::fetch_one`]'s return values on failure.
+    pub async fn get_time_range(
+        &self,
+        datasets: &[String],
+    ) -> Result<Option<TimeRange>, ClientError> {
         for dataset in datasets {
             if !VALID_DATASET_NAME_REGEX.is_match(dataset) {
                 return Err(ClientError::InvalidDatasetName);
@@ -264,23 +373,23 @@ impl MetadataClient {
         }
         match &self.config.package.storage_engine {
             StorageEngine::Clp => {
-                let table = self.config.database.archives_table_name(None);
+                let table = self.table_name(None, "archives");
                 let row = sqlx::query(&format!(
                     "SELECT MIN(begin_timestamp) AS begin_timestamp, \
                      MAX(end_timestamp) AS end_timestamp FROM `{table}`"
                 ))
                 .fetch_one(&self.sql_pool)
                 .await?;
-                Ok(row.try_into()?)
+                Ok(TimeRange::try_from(row).ok())
             }
             StorageEngine::ClpS => {
                 if datasets.is_empty() {
-                    return Err(sqlx::Error::RowNotFound.into());
+                    return Ok(None);
                 }
                 let union = datasets
                     .iter()
                     .map(|d| {
-                        let table = self.config.database.archives_table_name(Some(d));
+                        let table = self.table_name(Some(d), "archives");
                         format!(
                             "SELECT MIN(begin_timestamp) AS begin_timestamp, \
                              MAX(end_timestamp) AS end_timestamp FROM `{table}`"
@@ -293,22 +402,28 @@ impl MetadataClient {
                      MAX(end_timestamp) AS end_timestamp FROM ({union}) AS combined"
                 );
                 let row = sqlx::query(&sql).fetch_one(&self.sql_pool).await?;
-                Ok(row.try_into()?)
+                Ok(TimeRange::try_from(row).ok())
             }
         }
     }
 
-    /// Fetches aggregated space-savings statistics (total uncompressed and compressed sizes)
-    /// across all datasets.
+    /// Fetches aggregated space-savings statistics across all datasets.
+    ///
+    /// # Returns
+    ///
+    /// The total uncompressed and compressed sizes; both are `0` when no data has been
+    /// ingested yet.
     ///
     /// # Errors
     ///
-    /// Returns [`ClientError::InvalidDatasetName`] if a stored dataset name is invalid.
-    /// Forwards [`sqlx::query::Query::fetch_optional`]'s return values on failure.
+    /// Returns an error if:
+    ///
+    /// * [`ClientError::InvalidDatasetName`] if a stored dataset name is invalid.
+    /// * Forwards [`sqlx::query::Query::fetch_one`]'s return values on failure.
     pub async fn get_space_savings(&self) -> Result<SpaceSavings, ClientError> {
         let sql = match &self.config.package.storage_engine {
             StorageEngine::Clp => {
-                let table = self.config.database.archives_table_name(None);
+                let table = self.table_name(None, "archives");
                 format!(
                     "SELECT \
                        CAST(COALESCE(SUM(uncompressed_size), 0) AS SIGNED) AS total_uncompressed_size, \
@@ -330,7 +445,7 @@ impl MetadataClient {
                         if !VALID_DATASET_NAME_REGEX.is_match(dataset) {
                             return Err(ClientError::InvalidDatasetName);
                         }
-                        let table = self.config.database.archives_table_name(Some(dataset));
+                        let table = self.table_name(Some(dataset), "archives");
                         Ok(format!("SELECT uncompressed_size, size FROM `{table}`"))
                     })
                     .collect::<Result<Vec<_>, ClientError>>()?
@@ -343,31 +458,28 @@ impl MetadataClient {
                 )
             }
         };
-        let row = sqlx::query(&sql).fetch_optional(&self.sql_pool).await?;
-        let Some(row) = row else {
-            return Ok(SpaceSavings {
-                total_uncompressed_size: 0,
-                total_compressed_size: 0,
-            });
-        };
-        Ok(SpaceSavings {
-            total_uncompressed_size: row.try_get("total_uncompressed_size").unwrap_or(0),
-            total_compressed_size: row.try_get("total_compressed_size").unwrap_or(0),
-        })
+        let row = sqlx::query(&sql).fetch_one(&self.sql_pool).await?;
+        Ok(row.try_into()?)
     }
 
     /// Fetches ingestion details (timestamp range, file count, message count) across all
     /// datasets.
     ///
+    /// # Returns
+    ///
+    /// The ingestion details, or `None` when no data has been ingested yet.
+    ///
     /// # Errors
     ///
-    /// Returns [`ClientError::InvalidDatasetName`] if a stored dataset name is invalid.
-    /// Forwards [`sqlx::query::Query::fetch_optional`]'s return values on failure.
-    pub async fn get_ingestion_details(&self) -> Result<IngestionDetails, ClientError> {
+    /// Returns an error if:
+    ///
+    /// * [`ClientError::InvalidDatasetName`] if a stored dataset name is invalid.
+    /// * Forwards [`sqlx::query::Query::fetch_one`]'s return values on failure.
+    pub async fn get_ingestion_details(&self) -> Result<Option<IngestionDetails>, ClientError> {
         let sql = match &self.config.package.storage_engine {
             StorageEngine::Clp => {
-                let archives = self.config.database.archives_table_name(None);
-                let files = self.files_table(None);
+                let archives = self.table_name(None, "archives");
+                let files = self.table_name(None, "files");
                 format!(
                     "SELECT \
                        (SELECT MIN(begin_timestamp) FROM `{archives}`) AS begin_timestamp, \
@@ -380,12 +492,7 @@ impl MetadataClient {
             StorageEngine::ClpS => {
                 let datasets = self.get_dataset_names().await?;
                 if datasets.is_empty() {
-                    return Ok(IngestionDetails {
-                        begin_timestamp: None,
-                        end_timestamp: None,
-                        num_files: Some(0),
-                        num_messages: Some(0),
-                    });
+                    return Ok(None);
                 }
                 for dataset in &datasets {
                     if !VALID_DATASET_NAME_REGEX.is_match(dataset) {
@@ -395,7 +502,7 @@ impl MetadataClient {
                 let archives_union = datasets
                     .iter()
                     .map(|dataset| {
-                        let table = self.config.database.archives_table_name(Some(dataset));
+                        let table = self.table_name(Some(dataset), "archives");
                         format!(
                             "SELECT MIN(begin_timestamp) AS begin_timestamp, \
                              MAX(end_timestamp) AS end_timestamp FROM `{table}`"
@@ -406,7 +513,7 @@ impl MetadataClient {
                 let files_union = datasets
                     .iter()
                     .map(|dataset| {
-                        let table = self.files_table(Some(dataset));
+                        let table = self.table_name(Some(dataset), "files");
                         format!(
                             "SELECT COUNT(DISTINCT orig_file_id) AS num_files, \
                              CAST(COALESCE(SUM(num_messages), 0) AS SIGNED) AS num_messages \
@@ -419,40 +526,36 @@ impl MetadataClient {
                     "SELECT \
                        (SELECT MIN(begin_timestamp) FROM ({archives_union}) AS a) AS begin_timestamp, \
                        (SELECT MAX(end_timestamp) FROM ({archives_union}) AS a) AS end_timestamp, \
-                       (SELECT SUM(num_files) FROM ({files_union}) AS f) AS num_files, \
-                       (SELECT SUM(num_messages) FROM ({files_union}) AS f) AS num_messages"
+                       (SELECT CAST(SUM(num_files) AS SIGNED) FROM ({files_union}) AS f) \
+                         AS num_files, \
+                       (SELECT CAST(SUM(num_messages) AS SIGNED) FROM ({files_union}) AS f) \
+                         AS num_messages"
                 )
             }
         };
-        let row = sqlx::query(&sql).fetch_optional(&self.sql_pool).await?;
-        let Some(row) = row else {
-            return Ok(IngestionDetails {
-                begin_timestamp: None,
-                end_timestamp: None,
-                num_files: None,
-                num_messages: None,
-            });
-        };
-        Ok(IngestionDetails {
-            begin_timestamp: row.try_get("begin_timestamp").unwrap_or(None),
-            end_timestamp: row.try_get("end_timestamp").unwrap_or(None),
-            num_files: row.try_get("num_files").unwrap_or(None),
-            num_messages: row.try_get("num_messages").unwrap_or(None),
-        })
+        let row = sqlx::query(&sql).fetch_one(&self.sql_pool).await?;
+        Ok(IngestionDetails::try_from(row).ok())
     }
 
     /// Fetches the query speed (total uncompressed bytes scanned and job duration) for a
     /// search job across the given datasets.
     ///
+    /// # Returns
+    ///
+    /// The query-speed statistics, or `None` when the job hasn't scanned any archives or
+    /// hasn't finished yet.
+    ///
     /// # Errors
     ///
-    /// Returns [`ClientError::InvalidDatasetName`] if any dataset name is invalid.
-    /// Forwards [`sqlx::query::Query::fetch_optional`]'s return values on failure.
+    /// Returns an error if:
+    ///
+    /// * [`ClientError::InvalidDatasetName`] if any dataset name is invalid.
+    /// * Forwards [`sqlx::query::Query::fetch_optional`]'s return values on failure.
     pub async fn get_query_speed(
         &self,
         datasets: &[String],
         search_job_id: i64,
-    ) -> Result<QuerySpeed, ClientError> {
+    ) -> Result<Option<QuerySpeed>, ClientError> {
         for dataset in datasets {
             if !VALID_DATASET_NAME_REGEX.is_match(dataset) {
                 return Err(ClientError::InvalidDatasetName);
@@ -460,20 +563,17 @@ impl MetadataClient {
         }
         let archives_subquery = match &self.config.package.storage_engine {
             StorageEngine::Clp => {
-                let table = self.config.database.archives_table_name(None);
+                let table = self.table_name(None, "archives");
                 format!("SELECT id, uncompressed_size FROM `{table}`")
             }
             StorageEngine::ClpS => {
                 if datasets.is_empty() {
-                    return Ok(QuerySpeed {
-                        bytes: None,
-                        duration: None,
-                    });
+                    return Ok(None);
                 }
                 datasets
                     .iter()
                     .map(|d| {
-                        let table = self.config.database.archives_table_name(Some(d));
+                        let table = self.table_name(Some(d), "archives");
                         format!("SELECT id, uncompressed_size FROM `{table}`")
                     })
                     .collect::<Vec<_>>()
@@ -499,25 +599,25 @@ impl MetadataClient {
             .fetch_optional(&self.sql_pool)
             .await?;
         let Some(row) = row else {
-            return Ok(QuerySpeed {
-                bytes: None,
-                duration: None,
-            });
+            return Ok(None);
         };
-        Ok(QuerySpeed {
-            bytes: row.try_get("bytes").unwrap_or(None),
-            duration: row.try_get("duration").unwrap_or(None),
-        })
+        Ok(QuerySpeed::try_from(row).ok())
     }
 
     /// Fetches the timestamp column names for a given dataset (CLP-S only).
     ///
+    /// # Returns
+    ///
+    /// The distinct timestamp column names, ordered by name.
+    ///
     /// # Errors
     ///
-    /// Returns [`ClientError::InvalidDatasetName`] if the dataset name is invalid.
-    /// Returns [`ClientError::DatasetNotFound`] if the dataset's column-metadata table
-    /// doesn't exist.
-    /// Forwards [`sqlx::query::Query::fetch_all`]'s return values on failure.
+    /// Returns an error if:
+    ///
+    /// * [`ClientError::InvalidDatasetName`] if the dataset name is invalid.
+    /// * [`ClientError::DatasetNotFound`] if the dataset's column-metadata table doesn't
+    ///   exist.
+    /// * Forwards [`sqlx::query::Query::fetch_all`]'s return values on failure.
     pub async fn get_timestamp_column_names(
         &self,
         dataset_name: &str,
@@ -528,12 +628,9 @@ impl MetadataClient {
         if !VALID_DATASET_NAME_REGEX.is_match(dataset_name) {
             return Err(ClientError::InvalidDatasetName);
         }
-        let table_name = self
-            .config
-            .database
-            .column_metadata_table_name(Some(dataset_name));
+        let table_name = self.table_name(Some(dataset_name), "column_metadata");
         let names: Vec<String> = sqlx::query_scalar(&format!(
-            "SELECT name FROM `{table_name}` WHERE type IN (?, ?)"
+            "SELECT DISTINCT name FROM `{table_name}` WHERE type IN (?, ?) ORDER BY name"
         ))
         .bind(TIMESTAMP_TYPE)
         .bind(DEPRECATED_TIMESTAMP_TYPE)
@@ -552,12 +649,18 @@ impl MetadataClient {
         Ok(names)
     }
 
-    /// Fetches recent compression-job metadata (most recent first), with the decoded CLP IO
-    /// config for each job.
+    /// Fetches recent compression-job metadata, with the decoded CLP IO config for each job.
+    ///
+    /// # Returns
+    ///
+    /// The compression-job metadata rows, most recent first.
     ///
     /// # Errors
     ///
-    /// Forwards [`sqlx::query::Query::fetch_all`]'s return values on failure.
+    /// Returns an error if:
+    ///
+    /// * [`ClientError::MalformedData`] if a stored `clp_config` cannot be decoded.
+    /// * Forwards [`sqlx::query::Query::fetch_all`]'s return values on failure.
     pub async fn get_compression_metadata(&self) -> Result<Vec<CompressionMetadata>, ClientError> {
         let rows = sqlx::query(
             "SELECT \
@@ -572,7 +675,7 @@ impl MetadataClient {
         .await?;
         let mut out = Vec::with_capacity(rows.len());
         for row in rows {
-            let clp_config: serde_json::Value = rmp_serde::from_slice(&zstd::decode_all(
+            let clp_io_config: serde_json::Value = rmp_serde::from_slice(&zstd::decode_all(
                 row.try_get::<Vec<u8>, _>("clp_config")?.as_slice(),
             )?)?;
             out.push(CompressionMetadata {
@@ -593,7 +696,7 @@ impl MetadataClient {
                 duration: row.try_get("duration")?,
                 uncompressed_size: row.try_get("uncompressed_size")?,
                 compressed_size: row.try_get("compressed_size")?,
-                clp_config,
+                clp_config: clp_io_config,
             });
         }
         Ok(out)
@@ -601,14 +704,19 @@ impl MetadataClient {
 
     /// Submits a compression job to the `compression_jobs` table.
     ///
-    /// The job config is encoded as msgpack and zstd-compressed before being stored, mirroring
-    /// the webui server's `CompressionJobDbManager`.
+    /// The job config is encoded as msgpack and zstd-compressed before being stored.
+    ///
+    /// # Returns
+    ///
+    /// The ID of the newly created compression job on success.
     ///
     /// # Errors
     ///
-    /// Returns [`ClientError::InvalidDatasetName`] if the dataset name is invalid.
-    /// Forwards [`rmp_serde::to_vec_named`]'s return values on failure.
-    /// Forwards [`sqlx::query::Query::execute`]'s return values on failure.
+    /// Returns an error if:
+    ///
+    /// * [`ClientError::InvalidDatasetName`] if the dataset name is invalid.
+    /// * Forwards [`rmp_serde::to_vec_named`]'s return values on failure.
+    /// * Forwards [`sqlx::query::Query::execute`]'s return values on failure.
     pub async fn submit_compression_job(
         &self,
         creation: CompressionJobCreation,
@@ -621,10 +729,24 @@ impl MetadataClient {
         let archive_output = &self.config.archive_output;
         let storage_engine = &self.config.package.storage_engine;
 
+        let paths_to_compress: Vec<String> = match &self.config.logs_input {
+            LogsInput::Fs { .. } => creation
+                .paths
+                .iter()
+                .map(|path| {
+                    format!(
+                        "{CONTAINER_INPUT_LOGS_ROOT_DIR}/{}",
+                        path.trim_start_matches('/')
+                    )
+                })
+                .collect(),
+            LogsInput::S3 { .. } => creation.paths.clone(),
+        };
+
         let mut input = serde_json::json!({
             "dataset": null,
             "path_prefix_to_remove": CONTAINER_INPUT_LOGS_ROOT_DIR,
-            "paths_to_compress": creation.paths,
+            "paths_to_compress": paths_to_compress,
             "timestamp_key": null,
             "type": "fs",
             "unstructured": true,
@@ -671,9 +793,16 @@ impl MetadataClient {
 
     /// Lists files and directories at the specified path.
     ///
+    /// # Returns
+    ///
+    /// The directory entries at the path, or an empty list if the path is not a directory.
+    ///
     /// # Errors
     ///
-    /// Returns [`ClientError::Io`] if the path does not exist or cannot be read.
+    /// Returns an error if:
+    ///
+    /// * [`ClientError::NotFound`] if the path does not exist.
+    /// * [`ClientError::Io`] if the path cannot be read.
     pub async fn list_files(&self, path: String) -> Result<Vec<DirEntry>, ClientError> {
         let path_buf = PathBuf::from(&path);
         let metadata = tokio::fs::metadata(&path_buf).await.map_err(|err| {
@@ -706,16 +835,22 @@ impl MetadataClient {
     /// the given `stream_id`. If the stream has already been extracted, returns its metadata
     /// directly; otherwise submits an extraction job and waits for it to complete.
     ///
-    /// The returned `path` is the resolved stream-file path. When stream-files S3 storage is
-    /// configured, this is a pre-signed URL; otherwise it is a path relative to the webui
-    /// `/streams` static mount.
+    /// # Returns
+    ///
+    /// The extracted stream file's metadata. Its `path` is the resolved stream-file path:
+    /// a pre-signed URL when stream-files S3 storage is configured, otherwise a path
+    /// relative to the webui `/streams` static mount.
     ///
     /// # Errors
     ///
-    /// Returns [`ClientError::InvalidDatasetName`] if the dataset name is invalid.
-    /// Returns [`ClientError::InvalidInput`] if the extract job type is invalid.
-    /// Forwards [`mongodb::error::Error`]'s return values on failure.
-    /// Forwards [`sqlx::query::Query::execute`]'s return values on failure.
+    /// Returns an error if:
+    ///
+    /// * [`ClientError::InvalidDatasetName`] if the dataset name is invalid.
+    /// * [`ClientError::InvalidInput`] if the extract job fails, is cancelled, or produces
+    ///   no stream file containing the log event.
+    /// * [`ClientError::Aws`] if a pre-signed URL couldn't be generated.
+    /// * Forwards [`mongodb::error::Error`]'s return values on failure.
+    /// * Forwards [`sqlx::query::Query::execute`]'s return values on failure.
     pub async fn extract_stream_file(
         &self,
         extraction: StreamFileExtraction,
@@ -757,10 +892,80 @@ impl MetadataClient {
             doc.into_metadata()
         };
 
-        metadata.path = format!("/streams/{}", metadata.path);
+        metadata.path = match &self.config.stream_output.storage {
+            StreamOutputStorage::S3 { s3_config, .. } => {
+                self.generate_presigned_stream_url(s3_config, &metadata.path)
+                    .await?
+            }
+            StreamOutputStorage::Fs { .. } => format!("/streams/{}", metadata.path),
+        };
         Ok(metadata)
     }
 
+    /// Generates a pre-signed GET URL for the stream file at `path` under the stream-output
+    /// S3 key prefix.
+    ///
+    /// # Returns
+    ///
+    /// The pre-signed URL string on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// * [`ClientError::Aws`] if a region code is not provided when using the default AWS S3
+    ///   endpoint, or if a pre-signed URL couldn't be generated.
+    async fn generate_presigned_stream_url(
+        &self,
+        s3_config: &S3Config,
+        path: &str,
+    ) -> Result<String, ClientError> {
+        if s3_config.region_code.is_none() && s3_config.endpoint_url.is_none() {
+            return Err(ClientError::Aws {
+                description: "a region code must be given when using the default AWS S3 endpoint"
+                    .to_owned(),
+            });
+        }
+        let region = s3_config
+            .region_code
+            .as_ref()
+            .map_or(AWS_DEFAULT_REGION, non_empty_string::NonEmptyString::as_str);
+        let s3_client = clp_rust_utils::s3::create_new_client(
+            region,
+            s3_config.endpoint_url.as_ref(),
+            &s3_config.aws_authentication,
+        )
+        .await;
+        let presigning_config =
+            PresigningConfig::expires_in(Duration::from_secs(PRE_SIGNED_URL_EXPIRY_TIME_SECONDS))
+                .map_err(|err| ClientError::Aws {
+                description: err.to_string(),
+            })?;
+        let request = s3_client
+            .get_object()
+            .bucket(s3_config.bucket.as_str())
+            .key(format!("{}{path}", s3_config.key_prefix))
+            .presigned(presigning_config)
+            .await?;
+        Ok(request.uri().to_owned())
+    }
+
+    /// Submits a stream extraction job to the `query_jobs` table and polls its status until
+    /// it finishes.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` once the extract job succeeds.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// * [`ClientError::SearchJobNotFound`] if the job disappears from the database.
+    /// * [`ClientError::InvalidInput`] if the job fails, is killed, or is cancelled.
+    /// * [`ClientError::MalformedData`] if the job reports an unrecognized status.
+    /// * Forwards [`rmp_serde::to_vec_named`]'s return values on failure.
+    /// * Forwards [`sqlx::query::Query::execute`]'s return values on failure.
     async fn submit_and_wait_extract_job(
         &self,
         extraction: &StreamFileExtraction,
@@ -798,21 +1003,21 @@ impl MetadataClient {
                 return Err(ClientError::SearchJobNotFound(job_id));
             };
             let status: i32 = row.try_get("status")?;
-            match status {
-                2 => break,
-                3 | 6 => {
-                    return Err(ClientError::InvalidInput(format!(
-                        "Extract job {job_id} exited with status={status}"
-                    )));
+            match QueryJobStatus::try_from(status)? {
+                QueryJobStatus::Succeeded => break,
+                QueryJobStatus::Pending | QueryJobStatus::Running | QueryJobStatus::Cancelling => {
+                    tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                    delay_ms = std::cmp::min(delay_ms.saturating_mul(2), 5000);
                 }
-                5 => {
+                QueryJobStatus::Cancelled => {
                     return Err(ClientError::InvalidInput(format!(
                         "Extract job {job_id} was cancelled"
                     )));
                 }
-                _ => {
-                    tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
-                    delay_ms = std::cmp::min(delay_ms.saturating_mul(2), 5000);
+                QueryJobStatus::Failed | QueryJobStatus::Killed => {
+                    return Err(ClientError::InvalidInput(format!(
+                        "Extract job {job_id} exited with unexpected status={status}"
+                    )));
                 }
             }
         }
@@ -823,8 +1028,8 @@ impl MetadataClient {
 /// Mirror of `CONTAINER_INPUT_LOGS_ROOT_DIR` in `clp_package_utils.general`.
 const CONTAINER_INPUT_LOGS_ROOT_DIR: &str = "/mnt/logs";
 
-/// The `MongoDB` collection name for stream files. Kept in sync with the webui server's
-/// `MongoDbStreamFilesCollectionName` setting (`stream-files`).
+/// The `MongoDB` collection name for stream files. Mirror of
+/// `clp_py_utils.clp_config.ResultsCache.stream_collection_name`'s default.
 const STREAM_FILES_COLLECTION_NAME: &str = "stream-files";
 
 /// Internal document shape for the stream-files `MongoDB` collection.
@@ -838,6 +1043,7 @@ struct StreamFileMetadataDoc {
 }
 
 impl StreamFileMetadataDoc {
+    /// Converts the document into the public [`StreamFileMetadata`] shape.
     fn into_metadata(self) -> StreamFileMetadata {
         StreamFileMetadata {
             begin_msg_ix: self.begin_msg_ix,
@@ -849,6 +1055,9 @@ impl StreamFileMetadataDoc {
     }
 }
 
-/// The default target uncompressed size for stream extraction, mirroring the webui server's
-/// `StreamTargetUncompressedSize` setting.
+/// The target uncompressed size for stream extraction. Mirror of
+/// `clp_py_utils.clp_config.StreamOutput.target_uncompressed_size`'s default.
 const STREAM_TARGET_UNCOMPRESSED_SIZE: i64 = 134_217_728;
+
+/// Expiry time in seconds for pre-signed stream-file URLs.
+const PRE_SIGNED_URL_EXPIRY_TIME_SECONDS: u64 = 3600;

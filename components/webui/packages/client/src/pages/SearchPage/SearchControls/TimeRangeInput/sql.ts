@@ -1,11 +1,13 @@
 import dayjs, {Dayjs} from "dayjs";
 
 import {apiClient} from "../../../../api/search";
+import {DEFAULT_TIME_RANGE} from "./utils";
 
 
 /**
  * Fetches the earliest and latest log entry timestamps ("all time" range)
- * from the configured storage engine (CLP or CLPS).
+ * from the configured storage engine (CLP or CLPS). Falls back to the default
+ * time range when no archives have been ingested yet.
  *
  * @param selectedDatasets
  * @return
@@ -19,6 +21,10 @@ const fetchAllTimeRange = async (selectedDatasets: string[]): Promise<[Dayjs, Da
 
     if ("undefined" === typeof data) {
         throw new Error(`Failed to fetch time range: HTTP ${response.status}`);
+    }
+
+    if (null === data) {
+        return DEFAULT_TIME_RANGE;
     }
 
     return [

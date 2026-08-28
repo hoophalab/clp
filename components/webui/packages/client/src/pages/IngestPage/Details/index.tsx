@@ -41,12 +41,7 @@ const Details = () => {
                 throw new Error(`Failed to fetch details: HTTP ${response.status}`);
             }
 
-            return {
-                begin_timestamp: data.begin_timestamp ?? null,
-                end_timestamp: data.end_timestamp ?? null,
-                num_files: data.num_files ?? null,
-                num_messages: data.num_messages ?? null,
-            };
+            return data ?? DETAILS_DEFAULT;
         },
     });
 

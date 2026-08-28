@@ -14,7 +14,7 @@ interface SubmitExtractStreamJobProps {
 }
 
 /**
- * Maps the numeric [`QUERY_JOB_TYPE`] enum to the string enum expected by the api-server's
+ * Maps the numeric `QUERY_JOB_TYPE` enum to the string enum expected by the api-server's
  * `ExtractJobType` schema.
  *
  * @param jobType
@@ -64,8 +64,6 @@ const submitExtractStreamJob = async ({
         throw new Error(`Failed to extract stream file: HTTP ${response.status}`);
     }
 
-    // The api-server doesn't return `_id`; reuse `stream_id` to satisfy the existing
-    // `ExtractStreamResp` contract consumed by the log viewer loading page.
     return {
         data: {
             _id: data.stream_id,

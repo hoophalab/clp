@@ -17,7 +17,7 @@ const listFiles = async (path: string): Promise<FileListing> => {
         throw new Error(`Failed to list files: HTTP ${response.status}`);
     }
 
-    return data as unknown as FileListing;
+    return data;
 };
 
 export {listFiles};

@@ -159,7 +159,7 @@
     "/metadata/ingestion_details": {
       "get": {
         "tags": [],
-        "description": "Gets ingestion details (timestamp range, file count, message count) across all datasets.",
+        "description": "Gets ingestion details (timestamp range, file count, message count) across all datasets. Returns `null` when no data has been ingested yet.",
         "operationId": "ingestion_details",
         "responses": {
           "200": {
@@ -167,7 +167,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IngestionDetails"
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/IngestionDetails"
+                    }
+                  ]
                 }
               }
             }
@@ -181,7 +188,7 @@
     "/metadata/query_speed": {
       "get": {
         "tags": [],
-        "description": "Gets the query speed (total uncompressed bytes scanned and job duration) for a search job across the given datasets.",
+        "description": "Gets the query speed (total uncompressed bytes scanned and job duration) for a search job across the given datasets. Returns `null` when the job hasn't scanned any archives or hasn't finished yet.",
         "operationId": "query_speed",
         "parameters": [
           {
@@ -210,7 +217,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/QuerySpeed"
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/QuerySpeed"
+                    }
+                  ]
                 }
               }
             }
@@ -249,7 +263,7 @@
     "/metadata/time_range": {
       "get": {
         "tags": [],
-        "description": "Gets the earliest and latest log entry timestamps across the given datasets. For the CLP storage engine, the `dataset` parameter is ignored.",
+        "description": "Gets the earliest and latest log entry timestamps across the given datasets. For the CLP storage engine, the `dataset` parameter is ignored. Returns `null` when no archives exist yet.",
         "operationId": "time_range",
         "parameters": [
           {
@@ -268,7 +282,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TimeRange"
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TimeRange"
+                    }
+                  ]
                 }
               }
             }
@@ -567,7 +588,8 @@
         "properties": {
           "job_id": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "The ID of the newly created compression job."
           }
         }
       },
@@ -642,34 +664,41 @@
           },
           "compressed_size": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Total compressed archive size, in bytes."
           },
           "duration": {
             "type": [
               "number",
               "null"
             ],
-            "format": "double"
+            "format": "double",
+            "description": "Wall-clock duration the job ran, in seconds. Absent if the job did not complete."
           },
           "start_time": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Time the job started executing (RFC 3339). Absent if the job hasn't started."
           },
           "status": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "description": "Current status of the job. Matches `CompressionJobStatus` in\n`job_orchestration.scheduler.constants`."
           },
           "status_msg": {
-            "type": "string"
+            "type": "string",
+            "description": "Status message for the job."
           },
           "uncompressed_size": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Total uncompressed size of input files, in bytes."
           },
           "update_time": {
-            "type": "string"
+            "type": "string",
+            "description": "Time the job was last updated (RFC 3339)."
           }
         }
       },
@@ -740,27 +769,30 @@
       },
       "DirEntry": {
         "type": "object",
-        "description": "A directory entry returned by the file-listing endpoint.",
+        "description": "A directory entry returned by the file-listing endpoint.\n\nSerialized in camelCase to match the webui's existing `FileEntry` JSON contract.",
         "required": [
-          "is_expandable",
+          "isExpandable",
           "name",
-          "parent_path"
+          "parentPath"
         ],
         "properties": {
-          "is_expandable": {
-            "type": "boolean"
+          "isExpandable": {
+            "type": "boolean",
+            "description": "Whether the entry is a directory or symlink that can be expanded."
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "The entry's file name."
           },
-          "parent_path": {
-            "type": "string"
+          "parentPath": {
+            "type": "string",
+            "description": "Path of the directory containing the entry."
           }
         }
       },
       "ExtractJobType": {
         "type": "string",
-        "description": "Mirror of `job_orchestration.scheduler.constants.QueryJobType`.\n\nKept in sync with [`clp_rust_utils::job_config::QueryJobType`] but defined here so the\nAPI schema can reference it without pulling the whole job-config module into the public\nsurface.",
+        "description": "Mirror of the extract variants of `job_orchestration.scheduler.constants.QueryJobType`.\nMust be kept in sync with [`clp_rust_utils::job_config::QueryJobType`].",
         "enum": [
           "ExtractIr",
           "ExtractJson"
@@ -768,35 +800,33 @@
       },
       "IngestionDetails": {
         "type": "object",
-        "description": "Ingestion details statistics.",
+        "description": "Ingestion details statistics. The whole value is `None` when no data has been ingested\nyet.",
+        "required": [
+          "begin_timestamp",
+          "end_timestamp",
+          "num_files",
+          "num_messages"
+        ],
         "properties": {
           "begin_timestamp": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64"
+            "type": "integer",
+            "format": "int64",
+            "description": "Earliest log entry timestamp (epoch milliseconds)."
           },
           "end_timestamp": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64"
+            "type": "integer",
+            "format": "int64",
+            "description": "Latest log entry timestamp (epoch milliseconds)."
           },
           "num_files": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64"
+            "type": "integer",
+            "format": "int64",
+            "description": "Number of distinct ingested files."
           },
           "num_messages": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64"
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of ingested messages."
           }
         }
       },
@@ -877,21 +907,21 @@
       },
       "QuerySpeed": {
         "type": "object",
-        "description": "Query-speed statistics for a search job.",
+        "description": "Query-speed statistics for a search job. The whole value is `None` until the job has\nscanned archives and finished (its duration is recorded only on completion).",
+        "required": [
+          "bytes",
+          "duration"
+        ],
         "properties": {
           "bytes": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "format": "double"
+            "type": "number",
+            "format": "double",
+            "description": "Total uncompressed size of the archives the job scanned, in bytes."
           },
           "duration": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "format": "double"
+            "type": "number",
+            "format": "double",
+            "description": "Wall-clock duration the job ran, in seconds."
           }
         }
       },
@@ -905,11 +935,13 @@
         "properties": {
           "total_compressed_size": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Total compressed size of all archives, in bytes."
           },
           "total_uncompressed_size": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Total uncompressed size of all archives, in bytes."
           }
         }
       },
@@ -930,14 +962,17 @@
             "description": "Dataset the stream belongs to (CLP-S only; `null` for the CLP storage engine)."
           },
           "extract_job_type": {
-            "$ref": "#/components/schemas/ExtractJobType"
+            "$ref": "#/components/schemas/ExtractJobType",
+            "description": "The type of extraction job to submit."
           },
           "log_event_idx": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Index of the log event the extracted stream file must contain."
           },
           "stream_id": {
-            "type": "string"
+            "type": "string",
+            "description": "ID of the stream to extract."
           }
         },
         "additionalProperties": false
@@ -955,26 +990,31 @@
         "properties": {
           "begin_msg_ix": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Index of the first log event in the stream file (inclusive)."
           },
           "end_msg_ix": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Index of the last log event in the stream file (exclusive)."
           },
           "is_last_chunk": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Whether this is the stream's last chunk."
           },
           "path": {
-            "type": "string"
+            "type": "string",
+            "description": "The resolved stream-file path: a pre-signed URL when stream-files S3 storage is\nconfigured, otherwise a path relative to the webui `/streams` static mount."
           },
           "stream_id": {
-            "type": "string"
+            "type": "string",
+            "description": "ID of the stream the file was extracted from."
           }
         }
       },
       "TimeRange": {
         "type": "object",
-        "description": "Earliest and latest log entry timestamps across the selected datasets.",
+        "description": "Earliest and latest log entry timestamps across the selected datasets. The whole value\nis `None` when no archives exist yet (or, for CLP-S, when no datasets were selected).",
         "required": [
           "begin_timestamp",
           "end_timestamp"
@@ -982,11 +1022,13 @@
         "properties": {
           "begin_timestamp": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Earliest log entry timestamp (epoch milliseconds)."
           },
           "end_timestamp": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Latest log entry timestamp (epoch milliseconds)."
           }
         }
       }

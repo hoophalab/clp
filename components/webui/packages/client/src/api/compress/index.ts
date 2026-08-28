@@ -17,7 +17,15 @@ const submitCompressionJob = async (payload: CompressionJobCreation): Promise<Co
     console.log("Submitting compression job:", JSON.stringify(payload));
 
     // eslint-disable-next-line new-cap
-    const {data, response} = await apiClient.POST("/compression/jobs", {body: payload});
+    const {data, response} = await apiClient.POST("/compression/jobs", {
+        body: {
+            dataset: payload.dataset ?? null,
+            paths: payload.paths,
+            timestamp_key: payload.timestampKey ?? null,
+            unstructured: payload.unstructured ?? null,
+        },
+    });
+
     if ("undefined" === typeof data) {
         throw new Error(`Failed to submit compression job: HTTP ${response.status}`);
     }

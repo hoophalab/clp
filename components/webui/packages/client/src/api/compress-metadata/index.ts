@@ -16,8 +16,6 @@ const fetchCompressionJobs = async (): Promise<CompressionMetadataDecoded[]> => 
         throw new Error(`Failed to fetch compression jobs: HTTP ${response.status}`);
     }
 
-    // The api-server returns `clp_config` as a decoded JSON value (matching the
-    // `CompressionMetadataDecoded` shape) and `_id` for the job id.
     return data as unknown as CompressionMetadataDecoded[];
 };
 

@@ -9,6 +9,9 @@ import styles from "./index.module.css";
 import UncompressedSize from "./UncompressedSize";
 
 
+/**
+ * Default values for space savings when no data is available.
+ */
 const SPACE_SAVINGS_DEFAULT = {
     total_compressed_size: 0,
     total_uncompressed_size: 0,

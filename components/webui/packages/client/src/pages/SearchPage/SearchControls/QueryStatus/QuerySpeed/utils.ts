@@ -8,7 +8,8 @@ interface QuerySpeedResp {
 
 /**
  * Fetches the query speed data (bytes and duration) for a specific job ID
- * across the given datasets.
+ * across the given datasets. Both fields are `null` until the job has scanned
+ * archives and finished.
  *
  * @param datasetNames
  * @param jobId
@@ -31,8 +32,8 @@ const fetchQuerySpeed = async (datasetNames: string[], jobId: string): Promise<Q
     }
 
     return {
-        bytes: data.bytes ?? null,
-        duration: data.duration ?? null,
+        bytes: data?.bytes ?? null,
+        duration: data?.duration ?? null,
     };
 };
 

@@ -21,6 +21,12 @@ use crate::metadata_client::StreamFileExtraction;
 use crate::metadata_client::StreamFileMetadata;
 use crate::metadata_client::TimeRange;
 
+/// Factory method to create an [`OpenApiRouter`] configured with all metadata,
+/// compression, file-listing, and stream-file routes.
+///
+/// # Returns
+///
+/// A newly created [`OpenApiRouter`] instance with the routes registered.
 pub(super) fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::default()
         .routes(routes!(datasets))
@@ -35,6 +41,7 @@ pub(super) fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(extract_stream_file))
 }
 
+/// Query parameters for the dataset-scoped metadata endpoints.
 #[derive(Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
 struct DatasetsParams {
@@ -43,6 +50,11 @@ struct DatasetsParams {
     dataset: Option<String>,
 }
 
+/// Parses a comma-separated `dataset` query parameter into a list of dataset names.
+///
+/// # Returns
+///
+/// The trimmed, non-empty dataset names; empty when the parameter is absent.
 fn parse_datasets(dataset: Option<String>) -> Vec<String> {
     dataset
         .map(|s| {
@@ -72,10 +84,11 @@ async fn datasets(State(state): State<AppState>) -> Result<Json<Vec<String>>, Ha
     get,
     path = "/metadata/time_range",
     description = "Gets the earliest and latest log entry timestamps across the given \
-        datasets. For the CLP storage engine, the `dataset` parameter is ignored.",
+        datasets. For the CLP storage engine, the `dataset` parameter is ignored. Returns \
+        `null` when no archives exist yet.",
     params(DatasetsParams),
     responses(
-        (status = OK, body = TimeRange),
+        (status = OK, body = Option<TimeRange>),
         (status = BAD_REQUEST, description = "Invalid dataset name"),
         (status = INTERNAL_SERVER_ERROR)
     )
@@ -83,7 +96,7 @@ async fn datasets(State(state): State<AppState>) -> Result<Json<Vec<String>>, Ha
 async fn time_range(
     State(state): State<AppState>,
     Query(params): Query<DatasetsParams>,
-) -> Result<Json<TimeRange>, HandlerError> {
+) -> Result<Json<Option<TimeRange>>, HandlerError> {
     let datasets = parse_datasets(params.dataset);
     Ok(Json(state.metadata_client.get_time_range(&datasets).await?))
 }
@@ -106,18 +119,19 @@ async fn space_savings(State(state): State<AppState>) -> Result<Json<SpaceSaving
     get,
     path = "/metadata/ingestion_details",
     description = "Gets ingestion details (timestamp range, file count, message count) \
-        across all datasets.",
+        across all datasets. Returns `null` when no data has been ingested yet.",
     responses(
-        (status = OK, body = IngestionDetails),
+        (status = OK, body = Option<IngestionDetails>),
         (status = INTERNAL_SERVER_ERROR)
     )
 )]
 async fn ingestion_details(
     State(state): State<AppState>,
-) -> Result<Json<IngestionDetails>, HandlerError> {
+) -> Result<Json<Option<IngestionDetails>>, HandlerError> {
     Ok(Json(state.metadata_client.get_ingestion_details().await?))
 }
 
+/// Query parameters for the query speed endpoint.
 #[derive(Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
 struct QuerySpeedParams {
@@ -132,10 +146,11 @@ struct QuerySpeedParams {
     get,
     path = "/metadata/query_speed",
     description = "Gets the query speed (total uncompressed bytes scanned and job duration) \
-        for a search job across the given datasets.",
+        for a search job across the given datasets. Returns `null` when the job hasn't \
+        scanned any archives or hasn't finished yet.",
     params(QuerySpeedParams),
     responses(
-        (status = OK, body = QuerySpeed),
+        (status = OK, body = Option<QuerySpeed>),
         (status = BAD_REQUEST, description = "Invalid dataset name"),
         (status = INTERNAL_SERVER_ERROR)
     )
@@ -143,7 +158,7 @@ struct QuerySpeedParams {
 async fn query_speed(
     State(state): State<AppState>,
     Query(params): Query<QuerySpeedParams>,
-) -> Result<Json<QuerySpeed>, HandlerError> {
+) -> Result<Json<Option<QuerySpeed>>, HandlerError> {
     let datasets = parse_datasets(params.dataset);
     Ok(Json(
         state
@@ -194,6 +209,7 @@ async fn compression_metadata(
     ))
 }
 
+/// Query parameters for the file-listing endpoint.
 #[derive(Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
 struct ListFilesParams {
