@@ -248,6 +248,7 @@ pub struct StreamFileExtraction {
     /// Index of the log event the extracted stream file must contain.
     pub log_event_idx: i64,
     /// ID of the stream to extract.
+    #[schema(min_length = 1)]
     pub stream_id: String,
 }
 
@@ -846,7 +847,8 @@ impl MetadataClient {
     /// Returns an error if:
     ///
     /// * [`ClientError::InvalidDatasetName`] if the dataset name is invalid.
-    /// * [`ClientError::InvalidInput`] if the extract job fails, is cancelled, or produces
+    /// * [`ClientError::InvalidInput`] if `stream_id` is empty, or if the extract job fails,
+    ///   is cancelled, or produces
     ///   no stream file containing the log event.
     /// * [`ClientError::Aws`] if a pre-signed URL couldn't be generated.
     /// * Forwards [`mongodb::error::Error`]'s return values on failure.
@@ -859,6 +861,11 @@ impl MetadataClient {
             && !VALID_DATASET_NAME_REGEX.is_match(dataset)
         {
             return Err(ClientError::InvalidDatasetName);
+        }
+        if extraction.stream_id.is_empty() {
+            return Err(ClientError::InvalidInput(
+                "stream_id must not be empty".to_owned(),
+            ));
         }
         let stream_files_collection = self
             .mongodb_client
@@ -970,7 +977,7 @@ impl MetadataClient {
         &self,
         extraction: &StreamFileExtraction,
     ) -> Result<(), ClientError> {
-        let target_uncompressed_size = STREAM_TARGET_UNCOMPRESSED_SIZE;
+        let target_uncompressed_size = self.config.stream_output.target_uncompressed_size;
         let job_config = match extraction.extract_job_type {
             ExtractJobType::ExtractIr => serde_json::json!({
                 "file_split_id": null,
@@ -1054,10 +1061,6 @@ impl StreamFileMetadataDoc {
         }
     }
 }
-
-/// The target uncompressed size for stream extraction. Mirror of
-/// `clp_py_utils.clp_config.StreamOutput.target_uncompressed_size`'s default.
-const STREAM_TARGET_UNCOMPRESSED_SIZE: i64 = 134_217_728;
 
 /// Expiry time in seconds for pre-signed stream-file URLs.
 const PRE_SIGNED_URL_EXPIRY_TIME_SECONDS: u64 = 3600;

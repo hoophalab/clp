@@ -972,7 +972,8 @@
           },
           "stream_id": {
             "type": "string",
-            "description": "ID of the stream to extract."
+            "description": "ID of the stream to extract.",
+            "minLength": 1
           }
         },
         "additionalProperties": false
