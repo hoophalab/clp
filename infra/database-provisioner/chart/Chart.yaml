@@ -1,0 +1,4 @@
+apiVersion: "v2"
+name: "database-provisioner"
+description: "Provisions per-deployment MariaDB databases and synchronizes account credentials across ProxySQL replicas."
+version: "0.1.0"

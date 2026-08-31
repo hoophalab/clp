@@ -3,7 +3,7 @@ import * as cdk from "aws-cdk-lib/core";
 import {AwsSolutionsChecks} from "cdk-nag";
 
 
-const MAX_CLP_DEPLOYMENT_ID_LENGTH = 59;
+const MAX_CLP_DEPLOYMENT_ID_LENGTH = 32;
 const DEFAULT_CERT_MANAGER_CHART_VERSION = "v1.21.0";
 const DEFAULT_EXTERNAL_DNS_CHART_VERSION = "1.21.1";
 const DEFAULT_EXTERNAL_SECRETS_CHART_VERSION = "2.7.0";
@@ -182,8 +182,7 @@ export const getClpDeploymentId = function (app: cdk.App): string {
     if (MAX_CLP_DEPLOYMENT_ID_LENGTH < deploymentId.length) {
         panic(
             "Invalid context variable: 'com.yscope.cloud/deploymentId'. " +
-            "Use at most 59 characters so the generated 'clp-' namespace " +
-            "stays within Kubernetes' 63-character limit."
+            `Use at most ${MAX_CLP_DEPLOYMENT_ID_LENGTH} characters.`
         );
     }
 

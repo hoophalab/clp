@@ -13,6 +13,7 @@ import {
     ClusterScopedStack,
     ClusterScopedStackProps,
 } from "../cluster-scoped-stack";
+import {addDeploymentDatabase} from "./database";
 import {addGatewayResources} from "./gateway";
 
 
@@ -67,6 +68,13 @@ export class DeploymentStack extends ClusterScopedStack {
                 name: namespace,
             },
         });
+        const deploymentDatabase = addDeploymentDatabase({
+            cluster: cluster,
+            deploymentId: props.deploymentId,
+            scope: this,
+        });
+
+        deploymentDatabase.chart.node.addDependency(namespaceManifest);
 
         const helmChart = new eks.HelmChart(this, "PackageHelmRelease", {
             atomic: true,
@@ -85,15 +93,6 @@ export class DeploymentStack extends ClusterScopedStack {
             values: {
                 allowHostAccessForSbinScripts: false,
                 clpConfig: {
-                    logs_input: {
-                        aws_authentication: {
-                            type: "default",
-                        },
-                        type: "s3",
-                    },
-                    results_cache: {
-                        retention_period: null,
-                    },
                     archive_output: {
                         storage: {
                             s3_config: {
@@ -107,6 +106,29 @@ export class DeploymentStack extends ClusterScopedStack {
                             type: "s3",
                         },
                     },
+                    bundled: [
+                        "queue",
+                        "redis",
+                        "results_cache",
+                        "otel_collector",
+                    ],
+                    database: {
+                        host: deploymentDatabase.host,
+                        names: {
+                            clp: deploymentDatabase.name,
+                        },
+                        port: deploymentDatabase.port,
+                        type: "mariadb",
+                    },
+                    logs_input: {
+                        aws_authentication: {
+                            type: "default",
+                        },
+                        type: "s3",
+                    },
+                    results_cache: {
+                        retention_period: null,
+                    },
                     stream_output: {
                         storage: {
                             s3_config: {
@@ -119,6 +141,14 @@ export class DeploymentStack extends ClusterScopedStack {
                             },
                             type: "s3",
                         },
+                    },
+                },
+                credentials: {
+                    database: {
+                        password: deploymentDatabase.password,
+                        root_password: deploymentDatabase.password,
+                        root_username: deploymentDatabase.username,
+                        username: deploymentDatabase.username,
                     },
                 },
                 image: {
@@ -138,6 +168,7 @@ export class DeploymentStack extends ClusterScopedStack {
         });
 
         helmChart.node.addDependency(namespaceManifest);
+        helmChart.node.addDependency(deploymentDatabase.chart);
         addGatewayResources({
             cluster: cluster,
             helmChart: helmChart,

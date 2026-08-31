@@ -1,0 +1,76 @@
+apiVersion: "batch/v1"
+kind: "Job"
+metadata:
+  name: {{ printf "%s-delete" .Release.Name | quote }}
+  annotations:
+    helm.sh/hook: "pre-delete"
+    helm.sh/hook-delete-policy: "before-hook-creation,hook-succeeded"
+    helm.sh/hook-weight: "0"
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "database-provisioner"
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    spec:
+      restartPolicy: "OnFailure"
+      containers:
+        - name: "delete"
+          image: "mariadb:11.8.6"
+          imagePullPolicy: "IfNotPresent"
+          env:
+            - name: "DATABASE_ADMIN_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.proxysql.adminSecretName | quote }}
+                  key: "database-admin-password"
+            - name: "DATABASE_ADMIN_USERNAME"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.proxysql.adminSecretName | quote }}
+                  key: "database-admin-username"
+            - name: "PROXYSQL_ADMIN_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.proxysql.adminSecretName | quote }}
+                  key: "proxysql-admin-password"
+          command:
+            - "/bin/sh"
+            - "-ec"
+            - |
+              export MYSQL_PWD="$PROXYSQL_ADMIN_PASSWORD"
+              proxysql_service={{ required "proxysql.internalServiceName is required" .Values.proxysql.internalServiceName | quote }}
+              proxysql_hosts="$(
+                getent ahostsv4 "$proxysql_service" \
+                  | awk '{print $1}' \
+                  | sort -u
+              )"
+              if [ -z "$proxysql_hosts" ]; then
+                echo "No ProxySQL replicas found through $proxysql_service" >&2
+                exit 1
+              fi
+
+              for proxysql_host in $proxysql_hosts; do
+                mariadb \
+                  --connect-timeout=10 \
+                  --host="$proxysql_host" \
+                  --port=6032 \
+                  --protocol=TCP \
+                  --user=provisioner <<SQL
+              DELETE FROM mysql_users
+                WHERE username='{{ .Values.database.username }}';
+              LOAD MYSQL USERS TO RUNTIME;
+              SAVE MYSQL USERS TO DISK;
+              SQL
+              done
+
+              export MYSQL_PWD="$DATABASE_ADMIN_PASSWORD"
+              mariadb \
+                --connect-timeout=10 \
+                --host={{ required "proxysql.serviceName is required" .Values.proxysql.serviceName | quote }} \
+                --port={{ .Values.proxysql.frontendPort }} \
+                --protocol=TCP \
+                --user="$DATABASE_ADMIN_USERNAME" <<SQL
+              DROP USER IF EXISTS '{{ .Values.database.username }}'@'%';
+              SQL

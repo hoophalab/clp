@@ -1,0 +1,98 @@
+apiVersion: "batch/v1"
+kind: "Job"
+metadata:
+  name: {{ .Release.Name | quote }}
+  annotations:
+    helm.sh/hook: "post-install,post-upgrade"
+    helm.sh/hook-delete-policy: "before-hook-creation,hook-succeeded"
+    helm.sh/hook-weight: "0"
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "database-provisioner"
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    spec:
+      restartPolicy: "OnFailure"
+      containers:
+        - name: "provision"
+          image: "mariadb:11.8.6"
+          imagePullPolicy: "IfNotPresent"
+          env:
+            - name: "APP_DATABASE_PASSWORD"
+              value: {{ required "database.password is required" .Values.database.password | quote }}
+            - name: "DATABASE_ADMIN_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.proxysql.adminSecretName | quote }}
+                  key: "database-admin-password"
+            - name: "DATABASE_ADMIN_USERNAME"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.proxysql.adminSecretName | quote }}
+                  key: "database-admin-username"
+            - name: "PROXYSQL_ADMIN_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.proxysql.adminSecretName | quote }}
+                  key: "proxysql-admin-password"
+          command:
+            - "/bin/sh"
+            - "-ec"
+            - |
+              export MYSQL_PWD="$DATABASE_ADMIN_PASSWORD"
+              mariadb \
+                --connect-timeout=10 \
+                --host={{ required "proxysql.serviceName is required" .Values.proxysql.serviceName | quote }} \
+                --port={{ .Values.proxysql.frontendPort }} \
+                --user="$DATABASE_ADMIN_USERNAME" <<SQL
+              CREATE DATABASE IF NOT EXISTS \`{{ .Values.database.name }}\`;
+              CREATE USER IF NOT EXISTS '{{ .Values.database.username }}'@'%';
+              ALTER USER '{{ .Values.database.username }}'@'%'
+                IDENTIFIED BY '$APP_DATABASE_PASSWORD';
+              GRANT ALL PRIVILEGES ON \`{{ .Values.database.name }}\`.*
+                TO '{{ .Values.database.username }}'@'%';
+              SQL
+
+              export MYSQL_PWD="$PROXYSQL_ADMIN_PASSWORD"
+              proxysql_service={{ required "proxysql.internalServiceName is required" .Values.proxysql.internalServiceName | quote }}
+              proxysql_hosts="$(
+                getent ahostsv4 "$proxysql_service" 2>/dev/null \
+                  | awk '{print $1}' \
+                  | sort -u \
+                  || true
+              )"
+              if [ -z "$proxysql_hosts" ]; then
+                echo "No ProxySQL replicas found through $proxysql_service" >&2
+                exit 1
+              fi
+
+              for proxysql_host in $proxysql_hosts; do
+                mariadb \
+                  --connect-timeout=10 \
+                  --host="$proxysql_host" \
+                  --port=6032 \
+                  --protocol=TCP \
+                  --user=provisioner <<SQL
+              DELETE FROM mysql_users
+                WHERE username='{{ .Values.database.username }}';
+              INSERT INTO mysql_users (
+                username,
+                password,
+                active,
+                default_hostgroup,
+                transaction_persistent,
+                max_connections
+              ) VALUES (
+                '{{ .Values.database.username }}',
+                '$APP_DATABASE_PASSWORD',
+                1,
+                0,
+                1,
+                10000
+              );
+              LOAD MYSQL USERS TO RUNTIME;
+              SAVE MYSQL USERS TO DISK;
+              SQL
+              done

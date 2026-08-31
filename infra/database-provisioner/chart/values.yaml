@@ -1,0 +1,10 @@
+database:
+  name: "clp_deployment_id"
+  password: "password"
+  username: "clp_deployment_id"
+
+proxysql:
+  adminSecretName: "proxysql"
+  frontendPort: 6033
+  internalServiceName: "proxysql-internal"
+  serviceName: "proxysql"

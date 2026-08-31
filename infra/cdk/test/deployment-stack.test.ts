@@ -25,7 +25,7 @@ describe("DeploymentStack", () => {
         template.resourceCountIs("AWS::S3::Bucket", 1);
         template.resourceCountIs("AWS::IAM::Role", 2);
         template.resourceCountIs("AWS::IAM::Policy", 1);
-        template.resourceCountIs("Custom::AWSCDK-EKS-HelmChart", 1);
+        template.resourceCountIs("Custom::AWSCDK-EKS-HelmChart", 2);
         template.resourceCountIs("Custom::AWSCDK-EKS-KubernetesResource", 2);
     });
 });
