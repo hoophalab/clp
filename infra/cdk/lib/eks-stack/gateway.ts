@@ -182,7 +182,7 @@ const addAuth0 = function (
                             },
                         },
                     },
-                    pathOverride: "/authorize",
+                    pathOverride: "/authorize/auth0",
                 },
                 timeout: "5s",
             },

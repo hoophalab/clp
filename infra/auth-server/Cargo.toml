@@ -5,8 +5,12 @@ edition = "2024"
 
 [dependencies]
 axum = "0.8"
+base64 = "0.22.1"
 moka = { version = "0.12", features = ["future"] }
+regex = { version = "1", default-features = false, features = ["std", "perf"] }
+sha2 = "0.10.9"
 sqlx = { version = "0.8", default-features = false, features = ["macros", "migrate", "mysql", "runtime-tokio-rustls"] }
+subtle = "2.6.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1"
 tracing-appender = "0.2"

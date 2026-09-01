@@ -8,6 +8,8 @@ import {
 import {DeploymentStack} from "../lib/deployment-stack";
 
 
+const KUBERNETES_RESOURCE_COUNT = 5;
+
 describe("DeploymentStack", () => {
     test("synthesizes a CLP deployment", () => {
         const app = new cdk.App();
@@ -26,6 +28,9 @@ describe("DeploymentStack", () => {
         template.resourceCountIs("AWS::IAM::Role", 2);
         template.resourceCountIs("AWS::IAM::Policy", 1);
         template.resourceCountIs("Custom::AWSCDK-EKS-HelmChart", 2);
-        template.resourceCountIs("Custom::AWSCDK-EKS-KubernetesResource", 2);
+        template.resourceCountIs(
+            "Custom::AWSCDK-EKS-KubernetesResource",
+            KUBERNETES_RESOURCE_COUNT,
+        );
     });
 });

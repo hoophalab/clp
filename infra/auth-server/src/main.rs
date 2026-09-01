@@ -1,16 +1,27 @@
-use std::{env, sync::Arc, time::Duration};
+use std::{
+    env,
+    sync::{Arc, LazyLock},
+    time::Duration,
+};
 
 use axum::{
     Router,
     extract::State,
-    http::{HeaderMap, StatusCode, header::HOST},
-    routing::get,
+    http::{
+        HeaderMap, StatusCode,
+        header::{AUTHORIZATION, HOST},
+    },
+    routing::{any, get},
 };
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use moka::future::Cache;
+use regex::Regex;
+use sha2::{Digest, Sha256};
 use sqlx::{
     MySqlPool,
     mysql::{MySqlConnectOptions, MySqlPoolOptions},
 };
+use subtle::ConstantTimeEq;
 use tracing::{debug, error, info, warn};
 use tracing_appender::non_blocking::{NonBlockingBuilder, WorkerGuard};
 use tracing_subscriber::EnvFilter;
@@ -18,6 +29,21 @@ use tracing_subscriber::EnvFilter;
 const USER_ID_HEADER: &str = "x-auth0-user-id";
 const DEFAULT_ACCESS_CACHE_TTL_SECONDS: u64 = 60;
 const DEFAULT_ACCESS_CACHE_MAX_ENTRIES: u64 = 10_000;
+const TOKEN_SECRET_BYTES: usize = 32;
+const TOKEN_SELECTOR_BYTES: usize = 16;
+
+static BEARER_TOKEN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    let selector_len = (TOKEN_SELECTOR_BYTES * 8).div_ceil(6);
+    let secret_len = (TOKEN_SECRET_BYTES * 8).div_ceil(6);
+    Regex::new(&format!(
+        "^(?i-u:bearer) +sk\\.(?<selector>[A-Za-z0-9_-]{{{selector_len}}})\\.(?<secret>[A-Za-z0-9_-]{{{secret_len}}})$"
+    ))
+    .expect("bearer token pattern is valid")
+});
+
+fn decode_base64<const N: usize>(value: &str) -> Option<[u8; N]> {
+    URL_SAFE_NO_PAD.decode(value).ok()?.try_into().ok()
+}
 
 #[derive(Hash, PartialEq, Eq)]
 struct AccessCacheKey {
@@ -25,13 +51,20 @@ struct AccessCacheKey {
     deployment_id: String,
 }
 
+#[derive(Clone)]
+struct ApiTokenRecord {
+    secret_hash: Vec<u8>,
+    deployment_id: String,
+}
+
 struct App {
     base_domain: String,
     pool: MySqlPool,
     access_cache: Cache<AccessCacheKey, bool>,
+    api_token_cache: Cache<[u8; TOKEN_SELECTOR_BYTES], ApiTokenRecord>,
 }
 
-async fn authorize(State(app): State<Arc<App>>, headers: HeaderMap) -> StatusCode {
+async fn authorize_auth0(State(app): State<Arc<App>>, headers: HeaderMap) -> StatusCode {
     let host = match headers.get(HOST).and_then(|value| value.to_str().ok()) {
         Some(value) => value.split(':').next().unwrap_or(value),
         None => {
@@ -109,6 +142,96 @@ async fn authorize(State(app): State<Arc<App>>, headers: HeaderMap) -> StatusCod
     }
 }
 
+async fn authorize_api_token(State(app): State<Arc<App>>, headers: HeaderMap) -> StatusCode {
+    let host = match headers.get(HOST).and_then(|value| value.to_str().ok()) {
+        Some(value) => value.split(':').next().unwrap_or(value),
+        None => {
+            warn!("API token authorization denied: missing host.");
+            return StatusCode::FORBIDDEN;
+        }
+    };
+    let deployment_id = match host.strip_suffix(&format!(".{}", app.base_domain)) {
+        Some(value) if !value.is_empty() && !value.contains('.') => value,
+        _ => {
+            warn!(
+                host,
+                "API token authorization denied: invalid deployment host."
+            );
+            return StatusCode::FORBIDDEN;
+        }
+    };
+    let Some((selector, secret)) = headers
+        .get(AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|authorization_header| BEARER_TOKEN_REGEX.captures(authorization_header))
+        .and_then(|captures| {
+            let selector: [u8; TOKEN_SELECTOR_BYTES] = decode_base64(&captures["selector"])?;
+            let secret: [u8; TOKEN_SECRET_BYTES] = decode_base64(&captures["secret"])?;
+            Some((selector, secret))
+        })
+    else {
+        warn!(
+            host,
+            deployment_id, "API token authorization denied: missing or malformed bearer token."
+        );
+        return StatusCode::UNAUTHORIZED;
+    };
+    let record = match app.api_token_cache.get(&selector).await {
+        Some(record) => record,
+        None => {
+            info!(host, deployment_id, "querying database for API token");
+            let row = match sqlx::query_as::<_, (Vec<u8>, Vec<u8>)>(
+                "SELECT secret_hash, deployment_id FROM api_tokens \
+                 WHERE id = ? AND expires_at > UTC_TIMESTAMP(6) LIMIT 1",
+            )
+            .bind(selector.as_slice())
+            .fetch_optional(&app.pool)
+            .await
+            {
+                Ok(row) => row,
+                Err(error) => {
+                    error!(
+                        error = %error,
+                        host,
+                        deployment_id,
+                        "API token authorization query failed."
+                    );
+                    return StatusCode::INTERNAL_SERVER_ERROR;
+                }
+            };
+            let Some((secret_hash, raw_deployment_id)) = row else {
+                return StatusCode::UNAUTHORIZED;
+            };
+            let deployment_id = match String::from_utf8(raw_deployment_id) {
+                Ok(value) => value,
+                Err(error) => {
+                    error!(
+                        error = %error,
+                        host,
+                        deployment_id,
+                        "API token record has a non-UTF-8 deployment ID."
+                    );
+                    return StatusCode::INTERNAL_SERVER_ERROR;
+                }
+            };
+            let record = ApiTokenRecord {
+                secret_hash,
+                deployment_id,
+            };
+            app.api_token_cache.insert(selector, record.clone()).await;
+            record
+        }
+    };
+    if !bool::from(record.secret_hash.ct_eq(Sha256::digest(secret).as_slice())) {
+        return StatusCode::UNAUTHORIZED;
+    }
+    if record.deployment_id == deployment_id {
+        StatusCode::OK
+    } else {
+        StatusCode::FORBIDDEN
+    }
+}
+
 fn init_tracing() -> WorkerGuard {
     let (writer, guard) = NonBlockingBuilder::default()
         .lossy(false)
@@ -159,10 +282,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .max_capacity(access_cache_max_entries)
             .time_to_live(Duration::from_secs(access_cache_ttl_seconds))
             .build(),
+        api_token_cache: Cache::builder()
+            .max_capacity(access_cache_max_entries)
+            .time_to_live(Duration::from_secs(access_cache_ttl_seconds))
+            .build(),
     });
     let router = Router::new()
         .route("/health", get(|| async { StatusCode::OK }))
-        .fallback(authorize)
+        .route("/authorize/auth0", any(authorize_auth0))
+        .route("/authorize/api-token", any(authorize_api_token))
         .with_state(app);
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
     info!("auth server listening");
