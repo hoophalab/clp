@@ -3,8 +3,11 @@ import process from "node:process";
 import {serve} from "@hono/node-server";
 
 import {createApp} from "./app.js";
-import {createLocalIdentityVerifier} from "./authentication.js";
-import {readMetadataDbUri} from "./configuration.js";
+import {createAuth0IdentityVerifier} from "./auth0-identity-verifier.js";
+import {
+    readAuth0Configuration,
+    readMetadataDbUri,
+} from "./configuration.js";
 import {MetadataDb} from "./metadata-db.js";
 
 
@@ -25,13 +28,10 @@ const metadataDb = new MetadataDb(
 
 await metadataDb.connect();
 
-// The Auth0-backed verifier arrives with the adapter that binds this boundary
-// to the tenant; until then no credential is accepted.
 const app = createApp({
-    identityVerifier: createLocalIdentityVerifier({
-        auth0Issuer: "urn:yscope:auth0:unconfigured",
-        identities: new Map<string, unknown>(),
-    }),
+    identityVerifier: createAuth0IdentityVerifier(
+        readAuth0Configuration(process.env),
+    ),
 });
 const server = serve(
     {
