@@ -11,6 +11,7 @@ import type {Route} from "./+types/root";
 
 import "./styles.css";
 
+import {AuthProvider} from "~/components/auth-provider";
 import {TooltipProvider} from "~/components/ui/tooltip";
 
 
@@ -86,12 +87,16 @@ const HydrateFallback = () => {
 };
 
 /**
- * Renders the active application route.
+ * Wraps the active application route with the Auth0 provider.
  *
- * @return The active route outlet.
+ * @return The application route outlet.
  */
 const App = () => {
-    return <Outlet/>;
+    return (
+        <AuthProvider>
+            <Outlet/>
+        </AuthProvider>
+    );
 };
 
 /**
