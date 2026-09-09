@@ -30,6 +30,8 @@ type NavMainItem = {
     items?: {
         title: string;
         url: string;
+        icon?: LucideIcon;
+        isActive?: boolean;
     }[];
 };
 
@@ -94,17 +96,28 @@ const NavMain = ({
                                         </CollapsibleTrigger>
                                         <CollapsibleContent>
                                             <SidebarMenuSub>
-                                                {item.items.map((subItem) => (
-                                                    <SidebarMenuSubItem key={subItem.title}>
-                                                        <SidebarMenuSubButton
-                                                            render={<a href={subItem.url}/>}
-                                                        >
-                                                            <span>
-                                                                {subItem.title}
-                                                            </span>
-                                                        </SidebarMenuSubButton>
-                                                    </SidebarMenuSubItem>
-                                                ))}
+                                                {item.items.map((subItem) => {
+                                                    const SubItemIcon = subItem.icon;
+
+                                                    return (
+                                                        <SidebarMenuSubItem key={subItem.title}>
+                                                            <SidebarMenuSubButton
+                                                                isActive={subItem.isActive}
+                                                                render={<a href={subItem.url}/>}
+                                                                aria-current={subItem.isActive ?
+                                                                    "page" :
+                                                                    false}
+                                                            >
+                                                                {SubItemIcon ?
+                                                                    <SubItemIcon/> :
+                                                                    null}
+                                                                <span>
+                                                                    {subItem.title}
+                                                                </span>
+                                                            </SidebarMenuSubButton>
+                                                        </SidebarMenuSubItem>
+                                                    );
+                                                })}
                                             </SidebarMenuSub>
                                         </CollapsibleContent>
                                     </>

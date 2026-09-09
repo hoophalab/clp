@@ -4,7 +4,9 @@ import * as React from "react";
 
 import {
     BookOpenIcon,
+    ChartNoAxesColumnIncreasingIcon,
     CreditCardIcon,
+    KeyRoundIcon,
     MessageSquareIcon,
     ScrollTextIcon,
     SendIcon,
@@ -25,38 +27,28 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "~/components/ui/sidebar";
+import {useConsoleUser} from "~/hooks/use-console-user";
 
-
-/**
- * Reports whether the current user can access administrative navigation.
- *
- * @return Whether the current user is an administrator.
- */
-const isAdmin = (): boolean => {
-    // eslint-disable-next-line no-warning-comments
-    // TODO: Read this from Auth0 RBAC once it is available.
-    return true;
-};
 
 const data = {
-    user: {
-        name: "shadcn",
-        email: "m@example.com",
-    },
     navMain: [
         {
             icon: ServerIcon,
             isActive: true,
             items: [
                 {
+                    icon: ServerIcon,
+                    isActive: true,
                     title: "Deployments",
-                    url: "#",
+                    url: "/",
                 },
                 {
+                    icon: KeyRoundIcon,
                     title: "API keys",
                     url: "#",
                 },
                 {
+                    icon: ChartNoAxesColumnIncreasingIcon,
                     title: "Metrics",
                     url: "#",
                 },
@@ -67,7 +59,6 @@ const data = {
         {
             title: "Billing",
             url: "#",
-            disabled: true,
             icon: CreditCardIcon,
         },
     ],
@@ -109,6 +100,8 @@ const data = {
  * @return The application sidebar.
  */
 const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
+    const currentUser = useConsoleUser();
+
     return (
         <Sidebar
             variant={"inset"}
@@ -135,7 +128,7 @@ const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
             </SidebarHeader>
             <SidebarContent>
                 <NavMain items={data.navMain}/>
-                {isAdmin() ?
+                {currentUser.isAdmin ?
                     <NavAdmin items={data.admin}/> :
                     null}
                 <NavSecondary
@@ -143,7 +136,7 @@ const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
                     items={data.navSecondary}/>
             </SidebarContent>
             <SidebarFooter>
-                <NavUser user={data.user}/>
+                <NavUser user={currentUser}/>
             </SidebarFooter>
         </Sidebar>
     );

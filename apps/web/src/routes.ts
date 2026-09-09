@@ -6,5 +6,7 @@ import {
 
 
 export default [
-    layout("routes/authenticated-layout.tsx", [index("routes/dashboard.tsx")]),
+    layout("routes/authenticated-layout.tsx", [
+        layout("routes/console-layout.tsx", [index("routes/deployments.tsx")]),
+    ]),
 ] satisfies RouteConfig;

@@ -10,6 +10,7 @@ import {
 import {
     Avatar,
     AvatarFallback,
+    AvatarImage,
 } from "~/components/ui/avatar";
 import {
     DropdownMenu,
@@ -26,10 +27,29 @@ import {
     SidebarMenuItem,
     useSidebar,
 } from "~/components/ui/sidebar";
+import type {ConsoleUser} from "~/hooks/use-console-user";
 
 
 const USER_MENU_LABEL_CLASS_NAME =
     "flex items-center gap-2 px-1 py-1.5 text-left text-sm";
+
+/**
+ * Renders a user's Auth0 picture with derived initials as its fallback.
+ *
+ * @param root0 Avatar properties.
+ * @param root0.user Current Auth0 user details.
+ * @return The composed user avatar.
+ */
+const UserAvatar = ({user}: {user: ConsoleUser}) => (
+    <Avatar>
+        <AvatarImage
+            alt={user.name}
+            src={user.picture}/>
+        <AvatarFallback>
+            {user.initials}
+        </AvatarFallback>
+    </Avatar>
+);
 
 
 /**
@@ -37,18 +57,11 @@ const USER_MENU_LABEL_CLASS_NAME =
  *
  * @param root0 The user navigation properties.
  * @param root0.user The current user.
- * @param root0.user.name The user's display name.
- * @param root0.user.email The user's email address.
  * @return The user sidebar menu.
  */
 const NavUser = ({
     user,
-}: {
-    user: {
-        name: string;
-        email: string;
-    };
-}) => {
+}: {user: ConsoleUser}) => {
     const {isMobile} = useSidebar();
     return (
         <SidebarMenu>
@@ -59,9 +72,7 @@ const NavUser = ({
                             className={"aria-expanded:bg-muted"}
                             size={"lg"}/>}
                     >
-                        <Avatar>
-                            <AvatarFallback>CN</AvatarFallback>
-                        </Avatar>
+                        <UserAvatar user={user}/>
                         <div className={"grid flex-1 text-left text-sm leading-tight"}>
                             <span className={"truncate font-medium"}>
                                 {user.name}
@@ -85,9 +96,7 @@ const NavUser = ({
                                 <div
                                     className={USER_MENU_LABEL_CLASS_NAME}
                                 >
-                                    <Avatar>
-                                        <AvatarFallback>CN</AvatarFallback>
-                                    </Avatar>
+                                    <UserAvatar user={user}/>
                                     <div className={"grid flex-1 text-left text-sm leading-tight"}>
                                         <span className={"truncate font-medium"}>
                                             {user.name}
