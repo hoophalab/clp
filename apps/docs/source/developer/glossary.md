@@ -6,7 +6,11 @@ CLP deployment
 
 Deployment action
     An operation that changes a deployment. Supported actions include create, delete, suspend,
-    resume, and configure.
+    resume, and config.
+
+Deployment phase
+    The current stage in a CLP deployment's lifecycle. For example, a create request progresses
+    from `CREATE_REQUESTED` to `CREATING`, and then to either `RUNNING` or `CREATE_FAILED`.
 
 Deployment request
     A request to perform a deployment action.
