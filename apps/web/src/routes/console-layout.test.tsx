@@ -19,6 +19,8 @@ import {
     vi,
 } from "vitest";
 
+import type {DeploymentQuota} from "~/lib/deployment-quota";
+import {SAMPLE_DEPLOYMENT_QUOTA} from "~/lib/sample-deployment-quota";
 import ConsoleLayout from "~/routes/console-layout";
 
 
@@ -48,12 +50,16 @@ const createAccessToken = (roles: string[]): string => {
     return `header.${payload}.signature`;
 };
 
-/** Renders the console layout around representative route content. */
-const renderConsoleLayout = () => {
+/**
+ * Renders the console layout around representative route content.
+ *
+ * @param quota The account deployment quota.
+ */
+const renderConsoleLayout = (quota: DeploymentQuota = SAMPLE_DEPLOYMENT_QUOTA) => {
     render(
         <MemoryRouter>
             <Routes>
-                <Route element={<ConsoleLayout/>}>
+                <Route element={<ConsoleLayout quota={quota}/>}>
                     <Route
                         element={<p>Deployment content</p>}
                         index={true}/>
@@ -89,6 +95,16 @@ beforeEach(() => {
 });
 
 describe("ConsoleLayout", () => {
+    it("omits the trial widget for PPU accounts", async () => {
+        await act(async () => {
+            renderConsoleLayout({mode: "ppu"});
+            await Promise.resolve();
+        });
+        expect(screen.queryByText("Trial plan")).not.toBeInTheDocument();
+        expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+        expect(screen.getByRole("button", {name: "Create Deployment"})).toBeVisible();
+    });
+
     it("renders the deployment navigation and page actions", () => {
         renderConsoleLayout();
 
@@ -99,6 +115,11 @@ describe("ConsoleLayout", () => {
         expect(screen.getByRole("button", {name: "Create Deployment"})).toBeVisible();
         expect(screen.getByRole("button", {name: "Refresh deployments"})).toBeVisible();
         expect(screen.getByRole("button", {name: "Notifications"})).toBeVisible();
+        expect(screen.getByText("Trial plan")).toBeVisible();
+        expect(screen.getByText("9 / 10")).toBeVisible();
+        expect(screen.getByRole("progressbar", {
+            name: "Trial plan deployment quota",
+        })).toHaveAttribute("aria-valuetext", "9 of 10 deployments used");
         expect(screen.getByText("Deployment content")).toBeVisible();
     });
 

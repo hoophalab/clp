@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import {AppSidebar} from "~/components/app-sidebar";
+import {TrialDeploymentQuota} from "~/components/trial-deployment-quota";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -23,15 +24,19 @@ import {
     SidebarProvider,
     SidebarTrigger,
 } from "~/components/ui/sidebar";
+import type {DeploymentQuota} from "~/lib/deployment-quota";
+import {SAMPLE_DEPLOYMENT_QUOTA} from "~/lib/sample-deployment-quota";
 import {cn} from "~/lib/utils";
 
 
 /**
  * Renders the authenticated console shell around deployment routes.
  *
+ * @param props Console layout properties.
+ * @param props.quota The account deployment quota.
  * @return The console navigation, toolbar, and active route.
  */
-const ConsoleLayout = () => {
+const ConsoleLayout = ({quota = SAMPLE_DEPLOYMENT_QUOTA}: {quota?: DeploymentQuota}) => {
     return (
         <SidebarProvider>
             <AppSidebar/>
@@ -69,6 +74,9 @@ const ConsoleLayout = () => {
                         </Breadcrumb>
                     </div>
                     <div className={"flex shrink-0 items-center gap-1 sm:gap-2"}>
+                        {"trial" === quota.mode ?
+                            <TrialDeploymentQuota quota={quota}/> :
+                            null}
                         <Button
                             className={"hidden sm:inline-flex"}
                             size={"lg"}
