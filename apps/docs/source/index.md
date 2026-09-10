@@ -6,5 +6,6 @@ This is the YScope Cloud Console documentation scaffold.
 :maxdepth: 2
 :caption: Contents
 
+developer/clp-oss-release
 developer/glossary
 ```
