@@ -1,0 +1,17 @@
+# Mirrors tools/docker-images/clp-package/Dockerfile's COPY list.
+*
+!components/package-template/src
+!tools/docker-images/clp-package
+!build/core/clg
+!build/core/clo
+!build/core/clp
+!build/core/clp-s
+!build/core/indexer
+!build/core/log-converter
+!build/core/reducer-server
+!build/nodejs/bin/node
+!build/python-libs
+!build/rust-targets/release/api_server
+!build/rust-targets/release/compression-coordinator
+!build/rust-targets/release/log-ingestor
+!build/webui
