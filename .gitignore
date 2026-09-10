@@ -12,3 +12,6 @@ target
 .cdk.staging
 cdk.out
 cdk.context.json
+
+# Python
+__pycache__/
