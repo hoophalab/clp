@@ -165,7 +165,7 @@ jobs:
           submodules: "recursive"
           token: "${{secrets.SOURCE_READ_TOKEN || github.token}}"
 
-      - name: "Prepare the source"
+      - name: "Prepare the source and cache key"
         if: "inputs.mode != 'preflight'"
         id: "build"
         shell: "bash"
@@ -179,6 +179,18 @@ jobs:
           [[ "$DEPS_IMAGE_REF" == sha256:* ]] && separator="@" || separator=":"
           image="ghcr.io/y-scope/clp/clp-core-dependencies-${machine}-ubuntu-jammy${separator}${DEPS_IMAGE_REF}"
           docker pull --quiet "$image"
+          image_id=$(docker image inspect --format '{{.Id}}' "$image")
+
+          echo "image_id=${image_id#sha256:}" >>"$GITHUB_OUTPUT"
+
+      - name: "Cache the C++ dependencies"
+        if: "inputs.mode != 'preflight'"
+        uses: "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9"  # v6.1.0
+        with:
+          key: "deps-core-${{matrix.arch}}-ubuntu-jammy-${{steps.build.outputs.image_id}}-${{hashFiles('source/taskfile.yaml', 'source/taskfiles/deps/**/*.yaml', 'source/tools/yscope-dev-utils/exports/taskfiles/**/*.yaml')}}"
+          path: |
+            source/.task
+            source/build/deps/cpp
 
       - &python
         name: "Install the Python dependency"
@@ -226,6 +238,13 @@ jobs:
             --source-ref "$SOURCE_REF" \
             --source-repository "$SOURCE_REPOSITORY"
 
+      - name: "Trim the build cache"
+        if: "inputs.mode != 'preflight'"
+        shell: "bash"
+        run: |
+          rm -rf source/build/deps/cpp/mongocxx-build/_deps/mongo-c-driver-src/.git
+          if [[ -d source/.task ]]; then
+            find source/.task -type f ! -name '*deps*' -delete
           fi
 
   chart:
