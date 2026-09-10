@@ -1,0 +1,277 @@
+name: "clp-oss-release"
+
+on:
+  workflow_dispatch:
+    inputs:
+      cluster:
+        description: "Cluster to publish to. Names the ECR namespace."
+        required: true
+        type: string
+      clp_package_version:
+        description: "Image tag to publish. Required to publish; tags are immutable."
+        required: false
+        default: ""
+        type: string
+      source_repository:
+        description: "Repository to build. A private one needs the SOURCE_READ_TOKEN secret."
+        required: false
+        default: "y-scope/clp"
+        type: string
+      source_ref:
+        description: "Branch, tag or exact SHA in the source repository. Blank uses its default branch. Resolved to a SHA and pinned for the run."
+        required: false
+        default: ""
+        type: string
+      mode:
+        description: "Each mode does everything that the one before it does: preflight verifies the runner, checkout and ECR access; build then builds; publish then pushes."
+        required: false
+        default: "preflight"
+        type: choice
+        options: ["preflight", "build", "publish"]
+      components:
+        description: "Which artifacts to publish. Narrow this to finish a publish that failed part way."
+        required: false
+        default: "both"
+        type: choice
+        options: ["both", "image", "chart"]
+      aws_region:
+        description: "Region of the cluster's registry."
+        required: false
+        default: "us-west-1"
+        type: string
+      aws_role_arn:
+        description: "IAM role to assume through OIDC. One per cluster; the ARN is in the outputs of the cluster's Ecr stack."
+        required: true
+        type: string
+      arch:
+        description: "Architecture to build. With both, one tag is published per architecture and the two are joined."
+        required: false
+        default: "arm64"
+        type: choice
+        options: ["arm64", "amd64", "both"]
+      deps_image_ref:
+        description: "CLP dependency image to build in: a tag, a sha256:... digest, or tag@sha256:..."
+        required: false
+        default: "main"
+        type: string
+
+run-name: "${{inputs.mode}} ${{inputs.cluster}} ${{inputs.clp_package_version}}"
+
+permissions:
+  contents: "read"
+  id-token: "write"
+
+concurrency:
+  group: >-
+    ${{github.workflow}}-${{inputs.cluster}}-${{inputs.mode == 'publish'
+    && format('tag-{0}', inputs.clp_package_version) || github.run_id}}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: "${{fromJSON(vars.GH_RUNNER_LINUX_LIGHT_X64)}}"
+    timeout-minutes: 10
+    outputs:
+      arch_list: "${{steps.plan.outputs.arch_list}}"
+      arch_tag_list: "${{steps.plan.outputs.arch_tag_list}}"
+      index_tag_list: "${{steps.plan.outputs.index_tag_list}}"
+      source_ref: "${{steps.plan.outputs.source_ref}}"
+      source_sha: "${{steps.plan.outputs.source_sha}}"
+    steps:
+      - id: "plan"
+        name: "Resolve the source and architectures"
+        shell: "bash"
+        env:
+          ARCH: "${{inputs.arch}}"
+          CLUSTER: "${{inputs.cluster}}"
+          GH_TOKEN: "${{secrets.SOURCE_READ_TOKEN || github.token}}"
+          PACKAGE_VERSION: "${{inputs.clp_package_version}}"
+          SOURCE_REF: "${{inputs.source_ref}}"
+          SOURCE_REPOSITORY: "${{inputs.source_repository}}"
+        run: |
+          set -Eeuo pipefail
+
+          fail() {
+            echo "::error::$1" >&2
+            exit 2
+          }
+
+          # Names the ECR namespace, so the value is held to that grammar.
+          [[ "$CLUSTER" =~ ^[a-z0-9-]+$ ]] ||
+            fail "cluster is not a plausible cluster name: $CLUSTER"
+
+          # Interpolated into an API path below, so a `..` would walk out of the
+          # endpoint being asked about.
+          [[ "$SOURCE_REPOSITORY" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ && "$SOURCE_REPOSITORY" != *..* ]] ||
+            fail "source_repository must be owner/name: $SOURCE_REPOSITORY"
+
+          # Reaches this job's outputs, where a newline would write one of its own.
+          [[ -z "$PACKAGE_VERSION" || "$PACKAGE_VERSION" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]*$ ]] ||
+            fail "clp_package_version is not a plausible tag: $PACKAGE_VERSION"
+
+          ref="${SOURCE_REF:-$(gh api "repos/$SOURCE_REPOSITORY" --jq .default_branch)}"
+          # An API path segment too, so the same reasoning as the repository.
+          [[ "$ref" =~ ^[A-Za-z0-9._/-]+$ && "$ref" != *..* ]] ||
+            fail "source_ref is not a plausible git ref: $ref"
+
+          sha=$(gh api "repos/$SOURCE_REPOSITORY/commits/$ref" --jq .sha)
+          [[ "$sha" =~ ^[0-9a-fA-F]{40}$ ]] || fail "could not resolve $ref to a commit"
+
+          if [[ "$ARCH" == "both" ]]; then
+            arch_list='["arm64","amd64"]'
+            arch_tags="$PACKAGE_VERSION-arm64,$PACKAGE_VERSION-amd64"
+          else
+            arch_list="[\"$ARCH\"]"
+            arch_tags="$PACKAGE_VERSION-$ARCH"
+          fi
+
+          {
+            echo "arch_list=$arch_list"
+            echo "arch_tag_list=$arch_tags"
+            echo "index_tag_list=$PACKAGE_VERSION,$sha"
+            echo "source_ref=$ref"
+            echo "source_sha=$sha"
+          } >>"$GITHUB_OUTPUT"
+
+  publish:
+    if: "inputs.components != 'chart'"
+    needs: "plan"
+    name: "${{inputs.mode}} ${{inputs.cluster}} ${{matrix.arch}}"
+    runs-on: >-
+      ${{fromJSON(matrix.arch == 'arm64' && vars.GH_RUNNER_LINUX_HEAVY_ARM64
+      || vars.GH_RUNNER_LINUX_HEAVY_X64)}}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: true
+      matrix:
+        arch: "${{fromJSON(needs.plan.outputs.arch_list)}}"
+    steps:
+      - &checkout_ci
+        name: "Check out the release code"
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd"  # v6.0.2
+        with:
+          path: "ci"
+          persist-credentials: false
+
+      - &checkout_source
+        name: "Check out the source"
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd"  # v6.0.2
+        with:
+          fetch-depth: 0
+          path: "source"
+          persist-credentials: false
+          ref: "${{needs.plan.outputs.source_sha}}"
+          repository: "${{inputs.source_repository}}"
+          submodules: "recursive"
+          token: "${{secrets.SOURCE_READ_TOKEN || github.token}}"
+
+      - name: "Prepare the source"
+        if: "inputs.mode != 'preflight'"
+        id: "build"
+        shell: "bash"
+        env:
+          ARCH: "${{matrix.arch}}"
+          DEPS_IMAGE_REF: "${{inputs.deps_image_ref}}"
+        run: |
+          set -Eeuo pipefail
+
+          [[ "$ARCH" == "arm64" ]] && machine="aarch64" || machine="x86"
+          [[ "$DEPS_IMAGE_REF" == sha256:* ]] && separator="@" || separator=":"
+          image="ghcr.io/y-scope/clp/clp-core-dependencies-${machine}-ubuntu-jammy${separator}${DEPS_IMAGE_REF}"
+          docker pull --quiet "$image"
+
+      - &python
+        name: "Install the Python dependency"
+        shell: "bash"
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet --disable-pip-version-check boto3
+
+      - &aws
+        name: "Configure AWS credentials"
+        uses: "aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c"  # v6.2.3
+        with:
+          aws-region: "${{inputs.aws_region}}"
+          role-to-assume: "${{inputs.aws_role_arn}}"
+          role-session-name: "clp-oss-release-${{github.run_id}}"
+
+      - &ecr
+        name: "Log in to Amazon ECR"
+        uses: "aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64"  # v2.1.6
+
+      - name: "Run the release"
+        shell: "bash"
+        env:
+          ARCH: "${{matrix.arch}}"
+          AWS_REGION: "${{inputs.aws_region}}"
+          CLUSTER: "${{inputs.cluster}}"
+          DEPS_IMAGE_REF: "${{inputs.deps_image_ref}}"
+          MODE: "${{inputs.mode}}"
+          PACKAGE_VERSION: "${{inputs.clp_package_version}}"
+          SOURCE_REF: "${{needs.plan.outputs.source_ref}}"
+          SOURCE_REPOSITORY: "${{inputs.source_repository}}"
+          SOURCE_SHA: "${{needs.plan.outputs.source_sha}}"
+        run: |
+          "$RUNNER_TEMP/venv/bin/python" \
+            "$GITHUB_WORKSPACE/ci/.github/scripts/clp-oss-release/publish_clp_package.py" \
+            --mode "$MODE" \
+            --components "image" \
+            --cluster "$CLUSTER" \
+            --aws-region "$AWS_REGION" \
+            --package-version "$PACKAGE_VERSION" \
+            --arch "$ARCH" \
+            --source-commit-sha "$SOURCE_SHA" \
+            --source-dir "$GITHUB_WORKSPACE/source" \
+            --deps-image-ref "$DEPS_IMAGE_REF" \
+            --source-ref "$SOURCE_REF" \
+            --source-repository "$SOURCE_REPOSITORY"
+
+          fi
+
+  chart:
+    if: "inputs.components != 'image'"
+    needs: "plan"
+    name: "${{inputs.mode}} ${{inputs.cluster}} chart"
+    runs-on: "${{fromJSON(vars.GH_RUNNER_LINUX_LIGHT_ARM64)}}"
+    timeout-minutes: 60
+    steps:
+      - *checkout_ci
+      - *checkout_source
+      - *python
+      - *aws
+      - *ecr
+      - name: "Run the release"
+        shell: "bash"
+        env:
+          AWS_REGION: "${{inputs.aws_region}}"
+          CLUSTER: "${{inputs.cluster}}"
+          DEPS_IMAGE_REF: "${{inputs.deps_image_ref}}"
+          MODE: "${{inputs.mode}}"
+          PACKAGE_VERSION: "${{inputs.clp_package_version}}"
+          SOURCE_REF: "${{needs.plan.outputs.source_ref}}"
+          SOURCE_REPOSITORY: "${{inputs.source_repository}}"
+          SOURCE_SHA: "${{needs.plan.outputs.source_sha}}"
+        run: |
+          "$RUNNER_TEMP/venv/bin/python" \
+            "$GITHUB_WORKSPACE/ci/.github/scripts/clp-oss-release/publish_clp_package.py" \
+            --mode "$MODE" \
+            --components "chart" \
+            --cluster "$CLUSTER" \
+            --aws-region "$AWS_REGION" \
+            --package-version "$PACKAGE_VERSION" \
+            --source-commit-sha "$SOURCE_SHA" \
+            --source-dir "$GITHUB_WORKSPACE/source" \
+            --deps-image-ref "$DEPS_IMAGE_REF" \
+            --source-ref "$SOURCE_REF" \
+            --source-repository "$SOURCE_REPOSITORY"
+
+  manifest:
+    if: "inputs.mode == 'publish' && inputs.components != 'chart'"
+    needs: ["plan", "publish"]
+    uses: "./.github/workflows/clp-oss-release-manifest.yaml"
+    with:
+      arch_tag_list: "${{needs.plan.outputs.arch_tag_list}}"
+      aws_region: "${{inputs.aws_region}}"
+      aws_role_arn: "${{inputs.aws_role_arn}}"
+      index_tag_list: "${{needs.plan.outputs.index_tag_list}}"
+      repository: "${{inputs.cluster}}/clp-package"

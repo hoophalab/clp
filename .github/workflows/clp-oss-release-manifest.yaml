@@ -1,0 +1,81 @@
+name: "clp-oss-release-manifest"
+
+on:
+  workflow_call:
+    inputs:
+      arch_tag_list:
+        description: "Comma-separated tags to join, e.g. 0.5.0-arm64,0.5.0-amd64."
+        required: true
+        type: "string"
+      aws_region:
+        required: true
+        type: "string"
+      aws_role_arn:
+        required: true
+        type: "string"
+      index_tag_list:
+        description: "Comma-separated tags to write the index under. Existing ones are left alone."
+        required: true
+        type: "string"
+      repository:
+        description: "ECR repository, without the registry, e.g. yscope1/clp-package."
+        required: true
+        type: "string"
+
+permissions:
+  contents: "read"
+  id-token: "write"
+
+jobs:
+  manifest:
+    runs-on: "${{fromJSON(vars.GH_RUNNER_LINUX_LIGHT_ARM64)}}"
+    timeout-minutes: 30
+    steps:
+      - name: "Configure AWS credentials"
+        uses: "aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c"  # v6.2.3
+        with:
+          aws-region: "${{inputs.aws_region}}"
+          role-to-assume: "${{inputs.aws_role_arn}}"
+          role-session-name: "clp-oss-release-manifest-${{github.run_id}}"
+
+      - name: "Log in to Amazon ECR"
+        id: "ecr"
+        uses: "aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64"  # v2.1.6
+
+      - name: "Set up Buildx"
+        uses: "docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435"  # v3.11.1
+
+      - name: "Publish the manifest"
+        shell: "bash"
+        env:
+          ARCH_TAG_LIST: "${{inputs.arch_tag_list}}"
+          INDEX_TAG_LIST: "${{inputs.index_tag_list}}"
+          REPOSITORY: "${{steps.ecr.outputs.registry}}/${{inputs.repository}}"
+        run: |
+          set -Eeuo pipefail
+          IFS=, read -ra arch_tags <<<"$ARCH_TAG_LIST"
+          IFS=, read -ra index_tags <<<"$INDEX_TAG_LIST"
+
+          sources=()
+          for tag in "${arch_tags[@]}"; do
+            docker buildx imagetools inspect "$REPOSITORY:$tag" >/dev/null
+            sources+=("$REPOSITORY:$tag")
+          done
+
+          targets=()
+          for tag in "${index_tags[@]}"; do
+            if ! docker buildx imagetools inspect "$REPOSITORY:$tag" >/dev/null 2>&1; then
+              targets+=(--tag "$REPOSITORY:$tag")
+            fi
+          done
+          if [[ ${#targets[@]} -gt 0 ]]; then
+            docker buildx imagetools create "${targets[@]}" "${sources[@]}"
+          fi
+
+          {
+            echo "## Manifest"
+            echo
+            echo "- Repository: \`$REPOSITORY\`"
+            echo "- Joined: \`$ARCH_TAG_LIST\`"
+            echo "- Tagged: \`$INDEX_TAG_LIST\`"
+          } >>"$GITHUB_STEP_SUMMARY"
