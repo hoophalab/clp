@@ -181,7 +181,13 @@ jobs:
           docker pull --quiet "$image"
           image_id=$(docker image inspect --format '{{.Id}}' "$image")
 
+          nextest=$(curl --silent --show-error --fail --max-time 30 \
+            --header "User-Agent: cloud.yscope.com clp-oss-release" \
+            "https://crates.io/api/v1/crates/cargo-nextest" \
+            | python3 -c "import json, sys; print(json.load(sys.stdin)['crate']['max_stable_version'])" \
+            ) || nextest="unknown"
           echo "image_id=${image_id#sha256:}" >>"$GITHUB_OUTPUT"
+          echo "nextest=$nextest" >>"$GITHUB_OUTPUT"
 
       - name: "Cache the C++ dependencies"
         if: "inputs.mode != 'preflight'"
@@ -191,6 +197,16 @@ jobs:
           path: |
             source/.task
             source/build/deps/cpp
+
+      - name: "Cache cargo-nextest"
+        if: "inputs.mode != 'preflight'"
+        uses: "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9"  # v6.1.0
+        with:
+          key: "cargo-nextest-${{matrix.arch}}-ubuntu-jammy-${{steps.build.outputs.image_id}}-${{steps.build.outputs.nextest}}"
+          path: |
+            source/build/toolchains/rust/.cargo/.crates.toml
+            source/build/toolchains/rust/.cargo/.crates2.json
+            source/build/toolchains/rust/.cargo/bin/cargo-nextest
 
       - &python
         name: "Install the Python dependency"
