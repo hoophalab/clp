@@ -22,16 +22,12 @@ afterEach(() => {
     vi.unstubAllGlobals();
 });
 
-it("copies the deployment ID from both controls", async () => {
+it("copies the deployment ID from the inline control", () => {
     const writeText = vi.fn().mockResolvedValue(null);
     vi.stubGlobal("navigator", {clipboard: {writeText}});
     render(<DeploymentCard deployment={deployment}/>);
 
     fireEvent.click(screen.getByRole("button", {name: `Copy ${deployment.name} ID`}));
-    expect(writeText).toHaveBeenLastCalledWith(deployment.id);
-    writeText.mockClear();
-    fireEvent.click(screen.getByRole("button", {name: `More actions for ${deployment.name}`}));
-    fireEvent.click(await screen.findByRole("menuitem", {name: "Copy deployment ID"}));
     expect(writeText).toHaveBeenCalledExactlyOnceWith(deployment.id);
 });
 

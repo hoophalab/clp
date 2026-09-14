@@ -204,14 +204,6 @@ const DeploymentCardHeader = ({
                                 <Settings2Icon/>
                                 View details
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onClick={() => {
-                                    copyText(deployment.id);
-                                }}
-                            >
-                                <CopyIcon/>
-                                Copy deployment ID
-                            </DropdownMenuItem>
                         </DropdownMenuGroup>
                     </DropdownMenuContent>
                 </DropdownMenu>
