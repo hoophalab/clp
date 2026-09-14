@@ -1,5 +1,8 @@
 "use client";
 
+import {useState} from "react";
+
+import {useAuth0} from "@auth0/auth0-react";
 import {
     BellIcon,
     ChevronsUpDownIcon,
@@ -27,11 +30,15 @@ import {
     SidebarMenuItem,
     useSidebar,
 } from "~/components/ui/sidebar";
+import {toast} from "~/components/ui/toast";
 import type {ConsoleUser} from "~/hooks/use-console-user";
 
 
 const USER_MENU_LABEL_CLASS_NAME =
     "flex items-center gap-2 px-1 py-1.5 text-left text-sm";
+const LOGOUT_ERROR_TOAST_ID = "logout-error";
+
+type LogoutStatus = "ready" | "pending" | "failed";
 
 /**
  * Renders a user's Auth0 picture with derived initials as its fallback.
@@ -63,11 +70,34 @@ const NavUser = ({
     user,
 }: {user: ConsoleUser}) => {
     const {isMobile} = useSidebar();
+    const {logout} = useAuth0();
+    const [logoutStatus, setLogoutStatus] = useState<LogoutStatus>("ready");
+    const isLoggingOut = "pending" === logoutStatus;
+    const handleLogout = () => {
+        if (isLoggingOut) {
+            return;
+        }
+
+        setLogoutStatus("pending");
+        toast.close(LOGOUT_ERROR_TOAST_ID);
+        logout({logoutParams: {returnTo: window.location.origin}}).catch(() => {
+            setLogoutStatus("failed");
+            toast.add({
+                id: LOGOUT_ERROR_TOAST_ID,
+                title: "Could not log out",
+                description: "Please try again from the user menu.",
+                type: "error",
+            });
+        });
+    };
+
     return (
         <SidebarMenu>
             <SidebarMenuItem>
                 <DropdownMenu>
                     <DropdownMenuTrigger
+                        aria-busy={isLoggingOut}
+                        disabled={isLoggingOut}
                         render={<SidebarMenuButton
                             className={"aria-expanded:bg-muted"}
                             size={"lg"}/>}
@@ -75,7 +105,9 @@ const NavUser = ({
                         <UserAvatar user={user}/>
                         <div className={"grid flex-1 text-left text-sm leading-tight"}>
                             <span className={"truncate font-medium"}>
-                                {user.name}
+                                {isLoggingOut ?
+                                    "Logging out..." :
+                                    user.name}
                             </span>
                             <span className={"truncate text-xs"}>
                                 {user.email}
@@ -120,10 +152,15 @@ const NavUser = ({
                             </DropdownMenuItem>
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator/>
-                        <DropdownMenuItem>
-                            <LogOutIcon/>
-                            Log out
-                        </DropdownMenuItem>
+                        <DropdownMenuGroup>
+                            <DropdownMenuItem
+                                disabled={isLoggingOut}
+                                onClick={handleLogout}
+                            >
+                                <LogOutIcon/>
+                                Log out
+                            </DropdownMenuItem>
+                        </DropdownMenuGroup>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </SidebarMenuItem>

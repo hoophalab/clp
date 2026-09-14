@@ -12,6 +12,7 @@ import type {Route} from "./+types/root";
 import "./styles.css";
 
 import {AuthProvider} from "~/components/auth-provider";
+import {Toaster} from "~/components/ui/toast";
 import {TooltipProvider} from "~/components/ui/tooltip";
 
 
@@ -57,6 +58,7 @@ const Layout = ({children}: {children: React.ReactNode}) => {
                         {children}
                     </div>
                 </TooltipProvider>
+                <Toaster/>
                 <ScrollRestoration/>
                 <Scripts/>
             </body>
