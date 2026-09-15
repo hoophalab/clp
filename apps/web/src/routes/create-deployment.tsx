@@ -26,8 +26,17 @@ import {
 } from "~/components/ui/field";
 import {Input} from "~/components/ui/input";
 import {Separator} from "~/components/ui/separator";
+import {
+    type ConsoleRouteHandle,
+    DEPLOYMENT_BREADCRUMBS,
+} from "~/lib/console-route";
 import {cn} from "~/lib/utils";
 
+
+const handle = {
+    breadcrumbs: [...DEPLOYMENT_BREADCRUMBS,
+        {label: "Create"}],
+} satisfies ConsoleRouteHandle;
 
 /**
  * Shows deployment setup without offering unsupported provisioning operations.
@@ -137,4 +146,5 @@ const CreateDeploymentPage = () => {
     );
 };
 
+export {handle};
 export default CreateDeploymentPage;

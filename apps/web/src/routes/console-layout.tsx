@@ -1,22 +1,12 @@
-import {Outlet} from "react-router";
-
 import {
-    BellIcon,
-    HomeIcon,
-    PlusIcon,
-    RefreshCwIcon,
-} from "lucide-react";
+    Outlet,
+    useMatches,
+} from "react-router";
+
+import {BellIcon} from "lucide-react";
 
 import {AppSidebar} from "~/components/app-sidebar";
-import {TrialDeploymentQuota} from "~/components/trial-deployment-quota";
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from "~/components/ui/breadcrumb";
+import {ConsoleBreadcrumbs} from "~/components/console-breadcrumbs";
 import {Button} from "~/components/ui/button";
 import {Separator} from "~/components/ui/separator";
 import {
@@ -24,19 +14,23 @@ import {
     SidebarProvider,
     SidebarTrigger,
 } from "~/components/ui/sidebar";
-import type {DeploymentQuota} from "~/lib/deployment-quota";
-import {SAMPLE_DEPLOYMENT_QUOTA} from "~/lib/sample-deployment-quota";
+import type {ConsoleRouteHandle} from "~/lib/console-route";
 import {cn} from "~/lib/utils";
 
 
 /**
  * Renders the authenticated console shell around deployment routes.
  *
- * @param props Console layout properties.
- * @param props.quota The account deployment quota.
  * @return The console navigation, toolbar, and active route.
  */
-const ConsoleLayout = ({quota = SAMPLE_DEPLOYMENT_QUOTA}: {quota?: DeploymentQuota}) => {
+const ConsoleLayout = () => {
+    // Route modules check their handles with `satisfies ConsoleRouteHandle`.
+    // React Router exposes handles as unknown, so apply that local contract here.
+    const page = useMatches()
+        .map((match) => match.handle as ConsoleRouteHandle | undefined)
+        .reverse()
+        .find((handle) => handle?.breadcrumbs);
+
     return (
         <SidebarProvider>
             <AppSidebar/>
@@ -52,48 +46,10 @@ const ConsoleLayout = ({quota = SAMPLE_DEPLOYMENT_QUOTA}: {quota?: DeploymentQuo
                         <Separator
                             className={"mr-2 data-vertical:h-4 data-vertical:self-auto lg:hidden"}
                             orientation={"vertical"}/>
-                        <Breadcrumb>
-                            <BreadcrumbList>
-                                <BreadcrumbItem>
-                                    <BreadcrumbLink
-                                        aria-label={"Cloud Console home"}
-                                        href={"/"}
-                                    >
-                                        <HomeIcon className={"size-4"}/>
-                                    </BreadcrumbLink>
-                                </BreadcrumbItem>
-                                <BreadcrumbSeparator/>
-                                <BreadcrumbItem className={"hidden sm:block"}>
-                                    <BreadcrumbLink href={"/"}>Operations</BreadcrumbLink>
-                                </BreadcrumbItem>
-                                <BreadcrumbSeparator className={"hidden sm:block"}/>
-                                <BreadcrumbItem>
-                                    <BreadcrumbPage>Deployments</BreadcrumbPage>
-                                </BreadcrumbItem>
-                            </BreadcrumbList>
-                        </Breadcrumb>
+                        <ConsoleBreadcrumbs breadcrumbs={page?.breadcrumbs ?? []}/>
                     </div>
                     <div className={"flex shrink-0 items-center gap-1 sm:gap-2"}>
-                        {"trial" === quota.mode ?
-                            <TrialDeploymentQuota quota={quota}/> :
-                            null}
-                        <Button
-                            className={"hidden sm:inline-flex"}
-                            size={"lg"}
-                            type={"button"}
-                            variant={"brand"}
-                        >
-                            <PlusIcon data-icon={"inline-start"}/>
-                            Create Deployment
-                        </Button>
-                        <Button
-                            aria-label={"Refresh deployments"}
-                            size={"icon-lg"}
-                            type={"button"}
-                            variant={"ghost"}
-                        >
-                            <RefreshCwIcon/>
-                        </Button>
+                        {page?.toolbar}
                         <Button
                             aria-label={"Notifications"}
                             className={"relative"}

@@ -1,7 +1,7 @@
 import {
-    MemoryRouter,
-    Route,
-    Routes,
+    createMemoryRouter,
+    Outlet,
+    RouterProvider,
 } from "react-router";
 
 import {
@@ -9,6 +9,7 @@ import {
     cleanup,
     render,
     screen,
+    within,
 } from "@testing-library/react";
 import {
     afterEach,
@@ -19,9 +20,11 @@ import {
     vi,
 } from "vitest";
 
+import {DeploymentToolbar} from "~/components/deployment-toolbar";
 import type {DeploymentQuota} from "~/lib/deployment-quota";
 import {SAMPLE_DEPLOYMENT_QUOTA} from "~/lib/sample-deployment-quota";
 import ConsoleLayout from "~/routes/console-layout";
+import {handle as inventoryHandle} from "~/routes/deployments";
 
 
 const AUTH0_ROLES_CLAIM = "https://cloud.yscope.com/roles";
@@ -56,17 +59,16 @@ const createAccessToken = (roles: string[]): string => {
  * @param quota The account deployment quota.
  */
 const renderConsoleLayout = (quota: DeploymentQuota = SAMPLE_DEPLOYMENT_QUOTA) => {
-    render(
-        <MemoryRouter>
-            <Routes>
-                <Route element={<ConsoleLayout quota={quota}/>}>
-                    <Route
-                        element={<p>Deployment content</p>}
-                        index={true}/>
-                </Route>
-            </Routes>
-        </MemoryRouter>,
-    );
+    const router = createMemoryRouter([{
+        element: <ConsoleLayout/>,
+        children: [{
+            index: true,
+            element: <p>Deployment content</p>,
+            handle: {...inventoryHandle, toolbar: <DeploymentToolbar quota={quota}/>},
+        }],
+    }]);
+
+    render(<RouterProvider router={router}/>);
 };
 
 afterEach(cleanup);
@@ -102,7 +104,7 @@ describe("ConsoleLayout", () => {
         });
         expect(screen.queryByText("Trial plan")).not.toBeInTheDocument();
         expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
-        expect(screen.getByRole("button", {name: "Create Deployment"})).toBeVisible();
+        expect(screen.getByRole("link", {name: "Create Deployment"})).toBeVisible();
     });
 
     it("renders the deployment navigation and page actions", () => {
@@ -112,7 +114,7 @@ describe("ConsoleLayout", () => {
             "aria-current",
             "page",
         );
-        expect(screen.getByRole("button", {name: "Create Deployment"})).toBeVisible();
+        expect(screen.getByRole("link", {name: "Create Deployment"})).toBeVisible();
         expect(screen.getByRole("button", {name: "Refresh deployments"})).toBeVisible();
         expect(screen.getByRole("button", {name: "Notifications"})).toBeVisible();
         expect(screen.getByText("Trial plan")).toBeVisible();
@@ -121,6 +123,30 @@ describe("ConsoleLayout", () => {
             name: "Trial plan deployment quota",
         })).toHaveAttribute("aria-valuetext", "9 of 10 deployments used");
         expect(screen.getByText("Deployment content")).toBeVisible();
+    });
+
+    it("uses the deepest page handle without inheriting another page's toolbar", () => {
+        const router = createMemoryRouter([{
+            element: <ConsoleLayout/>,
+            children: [{
+                handle: inventoryHandle,
+                element: <Outlet/>,
+                children: [{
+                    path: "example",
+                    element: <p>Example content</p>,
+                    handle: {breadcrumbs: [{label: "Settings"},
+                        {label: "Example"}]},
+                }],
+            }],
+        }], {initialEntries: ["/example"]});
+
+        render(<RouterProvider router={router}/>);
+        const breadcrumbs = screen.getByRole("navigation", {name: "breadcrumb"});
+        expect(within(breadcrumbs).getByText("Example")).toHaveAttribute("aria-current", "page");
+        expect(within(breadcrumbs).getByText("Settings")).toBeVisible();
+        expect(within(breadcrumbs).queryByText("Deployments")).not.toBeInTheDocument();
+        expect(screen.queryByRole("link", {name: "Create Deployment"})).not.toBeInTheDocument();
+        expect(screen.queryByText("Trial plan")).not.toBeInTheDocument();
     });
 
     it("renders the Auth0 user and administrator navigation", async () => {

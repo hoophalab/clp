@@ -1,4 +1,5 @@
 import {useState} from "react";
+import {Link} from "react-router";
 
 import {
     CpuIcon,
@@ -11,7 +12,11 @@ import {
 import {DeploymentCard} from "~/components/deployment-card";
 import {DeploymentEmptyIllustration} from "~/components/deployment-empty-illustration";
 import {DeploymentFilters} from "~/components/deployment-filters";
-import {Button} from "~/components/ui/button";
+import {DeploymentToolbar} from "~/components/deployment-toolbar";
+import {
+    Button,
+    buttonVariants,
+} from "~/components/ui/button";
 import {
     Card,
     CardContent,
@@ -27,6 +32,10 @@ import {
 } from "~/components/ui/empty";
 import {Separator} from "~/components/ui/separator";
 import {
+    type ConsoleRouteHandle,
+    DEPLOYMENT_BREADCRUMBS,
+} from "~/lib/console-route";
+import {
     type Deployment,
     type DeploymentSort,
     type DeploymentStatus,
@@ -35,6 +44,11 @@ import {
 import {SAMPLE_DEPLOYMENTS} from "~/lib/sample-deployments";
 import {cn} from "~/lib/utils";
 
+
+const handle = {
+    breadcrumbs: DEPLOYMENT_BREADCRUMBS,
+    toolbar: <DeploymentToolbar/>,
+} satisfies ConsoleRouteHandle;
 
 const DEPLOYMENT_BENEFITS = [
     {
@@ -81,15 +95,16 @@ const DeploymentFirstUseState = () => {
                             "sm:max-w-none sm:flex-row sm:justify-center",
                         )}
                     >
-                        <Button
-                            className={"min-w-56"}
-                            size={"xl"}
-                            type={"button"}
-                            variant={"brand"}
+                        <Link
+                            to={"/deployments/new"}
+                            className={cn(
+                                buttonVariants({size: "xl", variant: "brand"}),
+                                "min-w-56",
+                            )}
                         >
                             <PlusIcon data-icon={"inline-start"}/>
                             Create Deployment
-                        </Button>
+                        </Link>
                         <Button
                             nativeButton={false}
                             size={"lg"}
@@ -223,4 +238,5 @@ const DeploymentsPage = ({
 };
 
 
+export {handle};
 export default DeploymentsPage;
