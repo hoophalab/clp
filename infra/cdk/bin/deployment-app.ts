@@ -7,12 +7,14 @@ import {
     getClpDeploymentId,
     getClpImageTag,
     getClusterName,
+    getClusterSecret,
     getEnv,
 } from "./app-context";
 
 
 const app = createApp();
 const clusterName = getClusterName(app);
+const clusterSecret = getClusterSecret(app);
 const env = getEnv();
 const clpChartConfig = getClpChartConfig(app);
 const deploymentId = getClpDeploymentId(app);
@@ -23,6 +25,7 @@ new DeploymentStack(app, `Deployment-${deploymentId}`, {
     chart: clpChartConfig.chart,
     chartVersion: clpChartConfig.chartVersion,
     clusterName: clusterName,
+    clusterSecret: clusterSecret,
     deploymentId: deploymentId,
     env: env,
     imageTag: imageTag,

@@ -83,6 +83,7 @@ jobs:
         run: >-
           pnpm run cdk:deployment synth
           -c com.yscope.cloud/clusterName=test
+          -c com.yscope.cloud/clusterSecret=test-cluster-secret
           -c com.yscope.cloud/domainName=cloud.yscope.com
           -c com.yscope.cloud/deploymentId=0123456789abcdef
           -c com.yscope.cloud/clpChart=clp

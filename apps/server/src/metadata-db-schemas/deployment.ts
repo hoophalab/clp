@@ -68,6 +68,7 @@ const WorkerCountSchema = z.int().positive();
 
 const DeploymentSpecSchema = z.strictObject({
     cloud_provider: z.literal("aws"),
+    clp_image_tag: z.string(),
     cluster_id: z.string(),
     compression_workers: WorkerCountSchema,
     deployment_name: z.string(),
@@ -77,6 +78,7 @@ const DeploymentSpecSchema = z.strictObject({
 });
 
 const DeploymentSpecPatchShape = {
+    clp_image_tag: DeploymentSpecSchema.shape.clp_image_tag.exactOptional(),
     compression_workers: DeploymentSpecSchema.shape.compression_workers.exactOptional(),
     deployment_name: DeploymentSpecSchema.shape.deployment_name.exactOptional(),
     helm_chart_version: DeploymentSpecSchema.shape.helm_chart_version.exactOptional(),
@@ -84,6 +86,10 @@ const DeploymentSpecPatchShape = {
 };
 
 const DeploymentSpecPatchSchema = z.union([
+    z.strictObject({
+        ...DeploymentSpecPatchShape,
+        clp_image_tag: DeploymentSpecSchema.shape.clp_image_tag,
+    }),
     z.strictObject({
         ...DeploymentSpecPatchShape,
         compression_workers: DeploymentSpecSchema.shape.compression_workers,

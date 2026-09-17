@@ -1,4 +1,4 @@
-import {randomBytes} from "node:crypto";
+import {createHmac} from "node:crypto";
 import path from "node:path";
 
 import * as eks from "aws-cdk-lib/aws-eks";
@@ -15,7 +15,6 @@ import {
 
 const DATABASE_NAME_PREFIX = "clp_";
 const DATABASE_NAME_MAX_LENGTH = 64;
-const DATABASE_PASSWORD_BYTE_LENGTH = 32;
 export interface DeploymentDatabase {
     chart: eks.HelmChart;
     host: string;
@@ -50,6 +49,7 @@ const createDatabaseName = function (deploymentId: string): string {
  *
  * @param config Database configuration.
  * @param config.cluster EKS target that hosts this deployment.
+ * @param config.clusterSecret Secret used to derive the database password.
  * @param config.deploymentId CLP deployment ID.
  * @param config.scope Deployment stack scope.
  * @return Values used to configure the CLP chart.
@@ -57,18 +57,21 @@ const createDatabaseName = function (deploymentId: string): string {
 export const addDeploymentDatabase = function (
     {
         cluster,
+        clusterSecret,
         deploymentId,
         scope,
     }: {
         cluster: eks.ICluster;
+        clusterSecret: string;
         deploymentId: string;
         scope: Construct;
     },
 ): DeploymentDatabase {
     const identifier = createDatabaseName(deploymentId);
     const releaseName = identifier.replaceAll("_", "-");
-    const password = randomBytes(DATABASE_PASSWORD_BYTE_LENGTH)
-        .toString("base64url");
+    const password = createHmac("sha256", clusterSecret)
+        .update(deploymentId)
+        .digest("base64url");
     const chartAsset = new s3assets.Asset(scope, "DatabaseProvisionerChartAsset", {
         path: path.join(__dirname, "../../../database-provisioner/chart"),
     });

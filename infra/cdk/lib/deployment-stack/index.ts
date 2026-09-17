@@ -27,6 +27,7 @@ const S3_ALL_OBJECTS_ARN = "arn:aws:s3:::*/*";
 export interface DeploymentStackProps extends ClusterScopedStackProps {
     chart: string;
     chartVersion: string;
+    clusterSecret: string;
     deploymentId: string;
     imageTag: string;
 }
@@ -70,6 +71,7 @@ export class DeploymentStack extends ClusterScopedStack {
         });
         const deploymentDatabase = addDeploymentDatabase({
             cluster: cluster,
+            clusterSecret: props.clusterSecret,
             deploymentId: props.deploymentId,
             scope: this,
         });

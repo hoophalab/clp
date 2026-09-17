@@ -54,6 +54,29 @@ export const getClusterName = function (app: cdk.App): string {
 };
 
 /**
+ * Gets the secret used to derive per-deployment database passwords.
+ *
+ * @param app CDK app.
+ * @return Stable secret used as the password-derivation key.
+ */
+export const getClusterSecret = function (app: cdk.App): string {
+    const clusterSecret: unknown = app.node.tryGetContext(
+        "com.yscope.cloud/clusterSecret",
+    );
+
+    if ("string" !== typeof clusterSecret || 0 === clusterSecret.length) {
+        return panic(
+            "Missing or invalid context variable: " +
+            "'com.yscope.cloud/clusterSecret'. Pass a non-empty cluster secret " +
+            "via cdk.json or the CLI " +
+            "(-c com.yscope.cloud/clusterSecret=CLUSTER_SECRET).",
+        );
+    }
+
+    return clusterSecret;
+};
+
+/**
  * Gets the IAM role ARN to map as the EKS cluster admin.
  *
  * @param app CDK app.

@@ -19,6 +19,7 @@ import {
  */
 const createDeploymentSpec = () => ({
     cloud_provider: "aws",
+    clp_image_tag: "0.5.0-main-test",
     cluster_id: "default",
     compression_workers: 4,
     deployment_name: "valid-deployment",
@@ -181,11 +182,13 @@ const DELETE_SUSPEND_RESUME_REQUESTS = [
 }>>;
 
 const VALID_SPEC_PATCHES = [
+    {clp_image_tag: "0.5.1-main-test"},
     {compression_workers: 8},
     {deployment_name: "updated-deployment"},
     {helm_chart_version: "1.2.4"},
     {search_workers: 12},
     {
+        clp_image_tag: "0.5.1-main-test",
         compression_workers: 8,
         deployment_name: "updated-deployment",
         helm_chart_version: "1.2.4",
