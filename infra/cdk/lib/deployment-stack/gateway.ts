@@ -70,7 +70,7 @@ const createHttpRouteRule = function (
                         headers: [{
                             name: "Authorization",
                             type: "RegularExpression",
-                            value: "(?i)^Bearer +sk\\..+$",
+                            value: "(?i)^Bearer +ysclp_.+$",
                         }],
                     } :
                     {}),

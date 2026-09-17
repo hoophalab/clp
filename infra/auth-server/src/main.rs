@@ -36,7 +36,7 @@ static BEARER_TOKEN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     let selector_len = (TOKEN_SELECTOR_BYTES * 8).div_ceil(6);
     let secret_len = (TOKEN_SECRET_BYTES * 8).div_ceil(6);
     Regex::new(&format!(
-        "^(?i-u:bearer) +sk\\.(?<selector>[A-Za-z0-9_-]{{{selector_len}}})\\.(?<secret>[A-Za-z0-9_-]{{{secret_len}}})$"
+        "^(?i-u:bearer) +ysclp_(?<selector>[A-Za-z0-9_-]{{{selector_len}}})(?<secret>[A-Za-z0-9_-]{{{secret_len}}})$"
     ))
     .expect("bearer token pattern is valid")
 });
