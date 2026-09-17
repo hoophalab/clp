@@ -1,4 +1,5 @@
 import type * as React from "react";
+import {Link} from "react-router";
 
 import type {LucideIcon} from "lucide-react";
 
@@ -36,8 +37,10 @@ const NavSecondary = ({
                     {items.map(({icon: Icon, title, url}) => (
                         <SidebarMenuItem key={title}>
                             <SidebarMenuButton
-                                render={<a href={url}/>}
                                 size={"sm"}
+                                render={url.startsWith("#") ?
+                                    <a href={url}/> :
+                                    <Link to={url}/>}
                             >
                                 <Icon/>
                                 <span>

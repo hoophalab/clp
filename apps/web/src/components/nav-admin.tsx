@@ -1,3 +1,5 @@
+import {Link} from "react-router";
+
 import type {LucideIcon} from "lucide-react";
 
 import {Badge} from "~/components/ui/badge";
@@ -35,7 +37,11 @@ const NavAdmin = ({
             <SidebarMenu>
                 {items.map(({icon: Icon, title, url}) => (
                     <SidebarMenuItem key={title}>
-                        <SidebarMenuButton render={<a href={url}/>}>
+                        <SidebarMenuButton
+                            render={url.startsWith("#") ?
+                                <a href={url}/> :
+                                <Link to={url}/>}
+                        >
                             <Icon/>
                             <span>
                                 {title}

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import {Link} from "react-router";
 
 import {
     BookOpenIcon,
@@ -111,7 +112,7 @@ const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton
-                            render={<a href={"/"}/>}
+                            render={<Link to={"/"}/>}
                             size={"lg"}
                         >
                             <img

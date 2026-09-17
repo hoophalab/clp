@@ -1,3 +1,5 @@
+import {Link} from "react-router";
+
 import {
     ChevronRightIcon,
     type LucideIcon,
@@ -74,8 +76,10 @@ const NavMain = ({
                             render={<SidebarMenuItem/>}
                         >
                             <SidebarMenuButton
-                                render={<a href={item.url}/>}
                                 tooltip={item.title}
+                                render={item.url.startsWith("#") ?
+                                    <a href={item.url}/> :
+                                    <Link to={item.url}/>}
                             >
                                 <Icon/>
                                 <span>
@@ -103,10 +107,14 @@ const NavMain = ({
                                                         <SidebarMenuSubItem key={subItem.title}>
                                                             <SidebarMenuSubButton
                                                                 isActive={subItem.isActive}
-                                                                render={<a href={subItem.url}/>}
                                                                 aria-current={subItem.isActive ?
                                                                     "page" :
                                                                     false}
+                                                                render={
+                                                                    subItem.url.startsWith("#") ?
+                                                                        <a href={subItem.url}/> :
+                                                                        <Link to={subItem.url}/>
+                                                                }
                                                             >
                                                                 {SubItemIcon ?
                                                                     <SubItemIcon/> :

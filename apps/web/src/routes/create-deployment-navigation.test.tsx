@@ -90,6 +90,22 @@ describe("Deployment creation navigation", () => {
         });
     });
 
+    it.each(["sidebar-menu-sub-button",
+        "sidebar-header"])("returns home through %s", async (slot) => {
+        renderConsole("/deployments/new");
+        const sidebar = document.querySelector('[data-slot="sidebar"]');
+        expect(sidebar).not.toBeNull();
+        const link = (sidebar as HTMLElement).querySelector(
+            `[data-slot="${slot}"][href="/"], [data-slot="${slot}"] a[href="/"]`,
+        );
+
+        expect(link).not.toBeNull();
+        expect(link).toHaveAttribute("href", "/");
+        expect(fireEvent.click(link as HTMLElement)).toBe(false);
+        expect(await screen.findByText("No deployments yet")).toBeVisible();
+        expect(auth.loginWithRedirect).not.toHaveBeenCalled();
+    });
+
     it("uses the creation toolbar for a trailing-slash URL", () => {
         renderConsole("/deployments/new/");
         expect(screen.getByRole("heading", {name: "Create your first deployment"})).toBeVisible();
