@@ -4,6 +4,7 @@ import {AwsSolutionsChecks} from "cdk-nag";
 
 
 const MAX_CLP_DEPLOYMENT_ID_LENGTH = 32;
+const MAX_CLUSTER_NAME_LENGTH = 16;
 const DEFAULT_CERT_MANAGER_CHART_VERSION = "v1.21.0";
 const DEFAULT_EXTERNAL_DNS_CHART_VERSION = "1.21.1";
 const DEFAULT_EXTERNAL_SECRETS_CHART_VERSION = "2.7.0";
@@ -48,13 +49,27 @@ export const createApp = function (): cdk.App {
  * @return Environment-scoped cluster identifier.
  */
 export const getClusterName = function (app: cdk.App): string {
-    return app.node.tryGetContext("com.yscope.cloud/clusterName") as string | undefined ??
+    const clusterName = app.node.tryGetContext(
+        "com.yscope.cloud/clusterName",
+    ) as string | undefined ?? panic(
+        "Missing required context variable: 'com.yscope.cloud/clusterName'. " +
+        "Pass it via cdk.json or the CLI (-c com.yscope.cloud/clusterName=prod). " +
+        "'clusterName' is required to isolate stacks across environments " +
+        "(e.g., dev, staging, prod)."
+    );
+
+    if (
+        MAX_CLUSTER_NAME_LENGTH < clusterName.length ||
+        false === KUBERNETES_NAMESPACE_LABEL_PATTERN.test(clusterName)
+    ) {
         panic(
-            "Missing required context variable: 'com.yscope.cloud/clusterName'. " +
-            "Pass it via cdk.json or the CLI (-c com.yscope.cloud/clusterName=MyCluster). " +
-            "'clusterName' is required to isolate stacks across environments " +
-            "(e.g., dev, staging, prod)."
+            "Invalid context variable: 'com.yscope.cloud/clusterName'. Use at most " +
+            `${MAX_CLUSTER_NAME_LENGTH} lowercase letters, numbers, and hyphens, ` +
+            "starting and ending with a letter or number."
         );
+    }
+
+    return clusterName;
 };
 
 /**

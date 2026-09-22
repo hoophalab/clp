@@ -59,7 +59,7 @@ export class DeploymentStack extends ClusterScopedStack {
         const hostname =
             `${props.deploymentId}.${props.clusterName}.${domainName}`;
         const namespace = `clp-${props.deploymentId}`;
-        const storageBucket = this.createStorageBucket();
+        const storageBucket = this.createStorageBucket(props);
         const serviceAccountRole = this.createServiceAccountRole(props);
 
         const namespaceManifest = cluster.addManifest("Namespace", {
@@ -235,9 +235,10 @@ export class DeploymentStack extends ClusterScopedStack {
         });
     }
 
-    private createStorageBucket (): s3.IBucket {
+    private createStorageBucket (props: DeploymentStackProps): s3.IBucket {
         const bucket = new s3.Bucket(this, "StorageBucket", {
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+            bucketName: `cloud-${props.clusterName}-${props.deploymentId}-data`,
             encryption: s3.BucketEncryption.S3_MANAGED,
             enforceSSL: true,
             removalPolicy: cdk.RemovalPolicy.RETAIN,
@@ -289,6 +290,7 @@ export class DeploymentStack extends ClusterScopedStack {
                 },
             ),
             description: "IAM role for the CLP Kubernetes service account.",
+            roleName: `cloud-${props.clusterName}-${props.deploymentId}-s3`,
         });
 
         // eslint-disable-next-line no-warning-comments
