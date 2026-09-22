@@ -23,12 +23,16 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudformation": "^3.1132.0",
+    "@aws-sdk/client-secrets-manager": "^3.1135.0",
     "@hono/node-server": "2.0.12",
     "@hono/standard-validator": "0.3.0",
     "@standard-schema/spec": "^1.1.0",
+    "aws-ssl-profiles": "^1.1.2",
     "hono": "^4.12.32",
     "jose": "^6.2.10",
     "mongodb": "^7.5.0",
+    "mysql2": "^3.24.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {

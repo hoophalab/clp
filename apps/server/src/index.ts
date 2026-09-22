@@ -4,6 +4,7 @@ import {serve} from "@hono/node-server";
 
 import {createApp} from "./app.js";
 import {createAuth0IdentityVerifier} from "./auth0-identity-verifier.js";
+import {ClusterDatabaseManager} from "./cluster-databases.js";
 import {
     readAuth0Configuration,
     readMetadataDbUri,
@@ -28,6 +29,7 @@ const metadataDb = new MetadataDb(
 
 await metadataDb.connect();
 
+const clusterDatabaseManager = new ClusterDatabaseManager();
 const app = createApp({
     identityVerifier: createAuth0IdentityVerifier(
         readAuth0Configuration(process.env),
@@ -67,6 +69,13 @@ const shutDown = (signal: NodeJS.Signals) => {
             console.log("Server stopped.");
         }
 
+        clusterDatabaseManager.close().catch((clusterDatabasesError: unknown) => {
+            console.error(
+                "Failed to close the cluster database pools cleanly.",
+                clusterDatabasesError,
+            );
+            process.exitCode = 1;
+        });
         metadataDb.close().catch((metadataDbError: unknown) => {
             console.error(
                 "Failed to close MongoDB cleanly.",
