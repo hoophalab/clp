@@ -1,3 +1,4 @@
+export {DeploymentOrchestrator} from "./deployment-orchestrator.js";
 export {
     type DeploymentAction,
     type DeploymentId,
