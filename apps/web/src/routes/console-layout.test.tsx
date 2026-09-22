@@ -116,7 +116,6 @@ describe("ConsoleLayout", () => {
         );
         expect(screen.getByRole("link", {name: "Create Deployment"})).toBeVisible();
         expect(screen.getByRole("button", {name: "Refresh deployments"})).toBeVisible();
-        expect(screen.getByRole("button", {name: "Notifications"})).toBeVisible();
         expect(screen.getByText("Trial plan")).toBeVisible();
         expect(screen.getByText("9 / 10")).toBeVisible();
         expect(screen.getByRole("progressbar", {

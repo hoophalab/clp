@@ -3,11 +3,8 @@ import {
     useMatches,
 } from "react-router";
 
-import {BellIcon} from "lucide-react";
-
 import {AppSidebar} from "~/components/app-sidebar";
 import {ConsoleBreadcrumbs} from "~/components/console-breadcrumbs";
-import {Button} from "~/components/ui/button";
 import {Separator} from "~/components/ui/separator";
 import {
     SidebarInset,
@@ -50,21 +47,6 @@ const ConsoleLayout = () => {
                     </div>
                     <div className={"flex shrink-0 items-center gap-1 sm:gap-2"}>
                         {page?.toolbar}
-                        <Button
-                            aria-label={"Notifications"}
-                            className={"relative"}
-                            size={"icon-lg"}
-                            type={"button"}
-                            variant={"ghost"}
-                        >
-                            <BellIcon/>
-                            <span
-                                aria-hidden={"true"}
-                                className={cn(
-                                    "absolute right-1.5 top-1.5 size-2 rounded-full",
-                                    "bg-destructive",
-                                )}/>
-                        </Button>
                     </div>
                 </header>
                 <Outlet/>
