@@ -10,6 +10,10 @@ const DEFAULT_EXTERNAL_SECRETS_CHART_VERSION = "2.7.0";
 const DEFAULT_ENVOY_GATEWAY_CHART_VERSION = "v1.8.2";
 const GIT_SHA_PATTERN = /^[0-9a-f]{40}$/;
 const GITHUB_REPOSITORY_PATTERN = /^[\w.-]+\/[\w.-]+$/;
+const IPV4_OCTET = "(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)";
+const IPV4_CIDR_PATTERN = new RegExp(
+    `^${IPV4_OCTET}(?:\\.${IPV4_OCTET}){3}/(?:3[0-2]|[12]?\\d)$`,
+);
 const KUBERNETES_NAMESPACE_LABEL_PATTERN = (
     /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/
 );
@@ -177,6 +181,42 @@ export const getNodeGroupDesiredSize = function (app: cdk.App): number {
     }
 
     return desiredSize;
+};
+
+/**
+ * Gets the public IPv4 CIDR ranges allowed to reach the cluster database directly.
+ *
+ * @param app CDK app.
+ * @return IPv4 CIDR ranges; empty when unset, which admits no client from outside the VPC.
+ */
+export const getDatabasePublicAccessCidrs = function (app: cdk.App): string[] {
+    const contextValue: unknown = app.node.tryGetContext(
+        "com.yscope.cloud/databasePublicAccessCidrs",
+    ) ?? "";
+
+    if ("string" !== typeof contextValue) {
+        return panic(
+            "Invalid context variable: 'com.yscope.cloud/databasePublicAccessCidrs'. " +
+            "Pass a comma-separated list of IPv4 CIDR ranges " +
+            "(-c com.yscope.cloud/databasePublicAccessCidrs=203.0.113.10/32).",
+        );
+    }
+    if ("" === contextValue) {
+        return [];
+    }
+
+    const cidrs = contextValue.split(",");
+
+    for (const cidr of cidrs) {
+        if (!IPV4_CIDR_PATTERN.test(cidr)) {
+            panic(
+                "Invalid context variable: 'com.yscope.cloud/databasePublicAccessCidrs'. " +
+                `'${cidr}' is not an IPv4 CIDR range (e.g. 203.0.113.10/32).`,
+            );
+        }
+    }
+
+    return cidrs;
 };
 
 /**

@@ -18,6 +18,7 @@ const DATABASE_PORT = 3307;
 const DATABASE_ADMIN_USERNAME = "admin";
 
 export interface RdsStackProps extends ClusterScopedStackProps {
+    publicAccessCidrs?: readonly string[];
     vpc: ec2.IVpc;
 }
 
@@ -44,6 +45,14 @@ export class RdsStack extends ClusterScopedStack {
         });
         this.securityGroup.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN);
 
+        for (const cidr of props.publicAccessCidrs ?? []) {
+            this.securityGroup.addIngressRule(
+                ec2.Peer.ipv4(cidr),
+                ec2.Port.tcp(DATABASE_PORT),
+                `Direct database access from ${cidr}`,
+            );
+        }
+
         const databaseSecret = new rds.DatabaseSecret(this, "DatabaseSecret", {
             excludeCharacters: ":;\\\"'",
             username: DATABASE_ADMIN_USERNAME,
@@ -68,13 +77,13 @@ export class RdsStack extends ClusterScopedStack {
             maxAllocatedStorage: 100,
             multiAz: true,
             port: this.port,
-            publiclyAccessible: false,
+            publiclyAccessible: true,
             removalPolicy: cdk.RemovalPolicy.RETAIN,
             securityGroups: [this.securityGroup],
             storageEncrypted: true,
             storageType: rds.StorageType.GP3,
             vpc: props.vpc,
-            vpcSubnets: {subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS},
+            vpcSubnets: {subnetType: ec2.SubnetType.PUBLIC},
         });
 
         this.host = database.dbInstanceEndpointAddress;

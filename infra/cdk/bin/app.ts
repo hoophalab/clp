@@ -15,6 +15,7 @@ import {
     getCloudflareZoneNames,
     getClusterAdminRoleArn,
     getClusterName,
+    getDatabasePublicAccessCidrs,
     getDomainName,
     getEnv,
     getEnvoyGatewayChartVersion,
@@ -37,6 +38,7 @@ const cloudflareApiTokenParameterName = getCloudflareApiTokenParameterName(app);
 const cloudflareZoneNames = getCloudflareZoneNames(app);
 const clusterAdminRoleArn = getClusterAdminRoleArn(app);
 const clusterName = getClusterName(app);
+const databasePublicAccessCidrs = getDatabasePublicAccessCidrs(app);
 const domainName = getDomainName(app);
 const envoyGatewayChartVersion = getEnvoyGatewayChartVersion(app);
 const externalDnsChartVersion = getExternalDnsChartVersion(app);
@@ -51,9 +53,10 @@ const vpcStack = new VpcStack(app, "Vpc", {clusterName, env});
 const {vpc} = vpcStack;
 
 const rdsStack = new RdsStack(app, "Rds", {
-    clusterName,
-    env,
-    vpc,
+    clusterName: clusterName,
+    env: env,
+    publicAccessCidrs: databasePublicAccessCidrs,
+    vpc: vpc,
 });
 
 const ecrStack = new EcrStack(app, "Ecr", {
