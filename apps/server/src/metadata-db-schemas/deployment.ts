@@ -122,6 +122,7 @@ const PendingDeploymentUpdateSchema = z.strictObject({
 
 const DeploymentStatusCommonShape = {
     archive_bucket: z.string().exactOptional(),
+    deploymentNotFunctional: z.boolean().exactOptional(),
     error: z.string().exactOptional(),
     last_active_at: z.date().exactOptional(),
     phase_transition_records: z.partialRecord(

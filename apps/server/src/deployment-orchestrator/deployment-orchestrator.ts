@@ -17,10 +17,8 @@ import type {
     DeploymentId,
     DeploymentRequest,
 } from "./deployment-request.js";
-import {
-    type DeploymentRequestExecutor,
-    DeploymentRequestProcessor,
-} from "./deployment-request-processor.js";
+import type {DeploymentRequestExecutor} from "./deployment-request-executor.js";
+import {DeploymentRequestProcessor} from "./deployment-request-processor.js";
 import {DeploymentRequestQueues} from "./deployment-request-queues.js";
 
 
@@ -71,7 +69,7 @@ class DeploymentOrchestrator {
 
     /**
      * @param database The metadata database containing deployment documents.
-     * @param requestExecutor The function used to execute deployment requests.
+     * @param requestExecutor The object used to execute deployment requests.
      */
     constructor (
         database: Db,
@@ -84,6 +82,7 @@ class DeploymentOrchestrator {
         this.requestProcessor = new DeploymentRequestProcessor(
             this.requestQueues,
             requestExecutor,
+            database,
         );
     }
 
@@ -178,6 +177,7 @@ class DeploymentOrchestrator {
      * - the deployment does not exist.
      * - the deployment document fails validation.
      * - the deployment is not in a requested phase.
+     * - the requested action is not supported.
      * - the deployment status could not be updated.
      */
     private async claimDeploymentRequest (
@@ -207,6 +207,11 @@ class DeploymentOrchestrator {
         }
 
         const requestedPhase = requestedPhaseParsed.data;
+        const {action} = REQUESTED_PHASE_TO_PROPERTIES[requestedPhase];
+        if ("create" !== action && "delete" !== action) {
+            throw new Error(`Unsupported deployment action: ${action}`);
+        }
+
         const requestedAt = deployment.status
             .phase_transition_records[requestedPhase] as Date;
 
@@ -230,7 +235,7 @@ class DeploymentOrchestrator {
         }
 
         return {
-            action: REQUESTED_PHASE_TO_PROPERTIES[requestedPhase].action,
+            action: action,
             deploymentId: deployment._id,
             requestId: randomUUID(),
             requestedAt: requestedAt,

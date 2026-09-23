@@ -64,6 +64,7 @@ const synthesizeDeploymentStack = (
     return Template.fromStack(stack);
 };
 
+// eslint-disable-next-line max-lines-per-function -- Keep the stack's test cases together.
 describe("DeploymentStack", () => {
     test("synthesizes a CLP deployment", () => {
         const template = synthesizeDeploymentStack();
@@ -83,6 +84,41 @@ describe("DeploymentStack", () => {
         const second: unknown = synthesizeDeploymentStack().toJSON();
 
         expect(first).toEqual(second);
+    });
+
+    test("exposes the deployment bucket, public URL, and CLP service account role", () => {
+        const template = synthesizeDeploymentStack();
+        const bucketId = template.getResourceId("AWS::S3::Bucket");
+        const serviceAccountRoleId = template.getResourceId("AWS::IAM::Role", {
+            Properties: {
+                AssumeRolePolicyDocument: {
+                    Statement: Match.arrayWith([
+                        Match.objectLike({Action: "sts:AssumeRoleWithWebIdentity"}),
+                    ]),
+                },
+            },
+        });
+
+        template.hasOutput("ArchiveBucketName", {Value: {Ref: bucketId}});
+        template.hasOutput("S3AccessRoleArn", {
+            Value: {
+                "Fn::GetAtt": [
+                    serviceAccountRoleId,
+                    "Arn",
+                ],
+            },
+        });
+        template.hasOutput("PublicUrl", {
+            Value: {
+                "Fn::Join": [
+                    "",
+                    [
+                        `https://${DEPLOYMENT_ID}.test.`,
+                        {"Fn::ImportValue": "test:DomainName"},
+                    ],
+                ],
+            },
+        });
     });
 
     test.each(PASSWORD_CASES)("uses the expected password in both Helm releases for $label", ({

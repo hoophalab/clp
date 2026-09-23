@@ -4,6 +4,9 @@ import {
 } from "mongodb";
 
 
+const MONGO_MAX_ADAPTIVE_RETRIES = 10;
+const MONGO_OPERATION_TIMEOUT_MS = 120_000;
+
 /**
  * Holds the process-wide MongoDB client and selected metadata database.
  */
@@ -16,7 +19,13 @@ class MetadataDb {
      * @param uri Complete MongoDB connection URI.
      */
     constructor (uri: string) {
-        this.#client = new MongoClient(uri);
+        this.#client = new MongoClient(uri, {
+            maxAdaptiveRetries: MONGO_MAX_ADAPTIVE_RETRIES,
+            retryReads: true,
+            retryWrites: true,
+            serverSelectionTimeoutMS: MONGO_OPERATION_TIMEOUT_MS,
+            timeoutMS: MONGO_OPERATION_TIMEOUT_MS,
+        });
         this.#database = this.#client.db();
     }
 

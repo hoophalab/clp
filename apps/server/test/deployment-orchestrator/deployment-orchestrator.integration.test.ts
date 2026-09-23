@@ -12,11 +12,11 @@ import {
     vi,
 } from "vitest";
 
+import type {DeploymentAction} from "../../src/deployment-orchestrator/deployment-request.js";
 import {
-    type DeploymentAction,
     DeploymentOrchestrator,
     type DeploymentRequest,
-    type DeploymentRequestExecutor,
+    DeploymentRequestExecutor,
 } from "../../src/deployment-orchestrator/index.js";
 import {MetadataDb} from "../../src/metadata-db.js";
 import {
@@ -32,36 +32,29 @@ const DEPLOYMENTS_COLLECTION_NAME = "deployments";
 const METADATA_DB_SETUP_TIMEOUT_MILLISECS = 60_000;
 const OWNER_ID = "owner-a";
 const REQUESTED_AT = new Date("2026-08-25T12:00:00.000Z");
+const DEPLOYMENT_OUTPUTS = {
+    archive_bucket: "test-deployment-archive",
+    public_url: "https://test-deployment.cloud.yscope.com",
+    s3_access_role_arn: "arn:aws:iam::123456789012:role/test-deployment-s3-access",
+};
 const UUID_PATTERN =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
 const REQUEST_PHASE_CASES = [
     {
-        action: "config",
-        inProgressPhase: "CONFIGURING",
-        requestedPhase: "CONFIG_REQUESTED",
-    },
-    {
         action: "create",
+        completedPhase: "RUNNING",
         inProgressPhase: "CREATING",
         requestedPhase: "CREATE_REQUESTED",
     },
     {
         action: "delete",
+        completedPhase: "DELETED",
         inProgressPhase: "DELETING",
         requestedPhase: "DELETE_REQUESTED",
     },
-    {
-        action: "resume",
-        inProgressPhase: "RESUMING",
-        requestedPhase: "RESUME_REQUESTED",
-    },
-    {
-        action: "suspend",
-        inProgressPhase: "SUSPENDING",
-        requestedPhase: "SUSPEND_REQUESTED",
-    },
 ] as const satisfies ReadonlyArray<Readonly<{
     action: DeploymentAction;
+    completedPhase: DeploymentPhase;
     inProgressPhase: InProgressDeploymentPhase;
     requestedPhase: RequestedDeploymentPhase;
 }>>;
@@ -133,16 +126,22 @@ beforeAll(async () => {
         DEPLOYMENTS_COLLECTION_NAME,
     );
 
-    const requestExecutor: DeploymentRequestExecutor = (request) => {
+    const requestExecutor = new DeploymentRequestExecutor({
+        clusterSecret: "test-secret",
+        database: database,
+    });
+
+    vi.spyOn(requestExecutor, "execute").mockImplementation((request) => {
         executedRequests.push(request);
 
-        return Promise.resolve();
-    };
+        return Promise.resolve(
+            "create" === request.action ?
+                DEPLOYMENT_OUTPUTS :
+                null,
+        );
+    });
 
-    orchestrator = new DeploymentOrchestrator(
-        database,
-        requestExecutor,
-    );
+    orchestrator = new DeploymentOrchestrator(database, requestExecutor);
 
     orchestrator.runProcessor().catch((error: unknown) => {
         throw error;
@@ -163,6 +162,7 @@ it.each(REQUEST_PHASE_CASES)(
     "claims and processes a $action request",
     async ({
         action,
+        completedPhase,
         inProgressPhase,
         requestedPhase,
     }) => {
@@ -175,14 +175,25 @@ it.each(REQUEST_PHASE_CASES)(
         await deploymentCollection.insertOne(deployment);
         await orchestrator.schedule(deploymentId);
 
-        const claimedDeployment = DeploymentDocumentSchema.parse(
-            await deploymentCollection.findOne({_id: deploymentId}),
-        );
+        const completedDeployment = await vi.waitFor(async () => {
+            const stored = DeploymentDocumentSchema.parse(
+                await deploymentCollection.findOne({_id: deploymentId}),
+            );
 
-        expect(claimedDeployment.status.phase).toBe(inProgressPhase);
-        await vi.waitFor(() => {
-            expect(executedRequests).toHaveLength(1);
+            expect(stored.status.phase).toBe(completedPhase);
+
+            return stored;
         });
+
+        const transitions = completedDeployment.status.phase_transition_records;
+        expect(transitions[requestedPhase]).toEqual(REQUESTED_AT);
+        expect(transitions[inProgressPhase]).toBeInstanceOf(Date);
+        expect(transitions[completedPhase]).toBeInstanceOf(Date);
+        expect(completedDeployment.status.error).toBeUndefined();
+        if ("create" === action) {
+            expect(completedDeployment.status).toMatchObject(DEPLOYMENT_OUTPUTS);
+        }
+        expect(executedRequests).toHaveLength(1);
         const [executedRequest] = executedRequests;
 
         expect(executedRequest.requestId).toMatch(UUID_PATTERN);
@@ -211,7 +222,9 @@ it("does not allow concurrent requests on the same deployment", async () => {
         .toHaveLength(1);
     expect(scheduleResults.filter(({status}) => "rejected" === status))
         .toHaveLength(1);
-    await vi.waitFor(() => {
+    await vi.waitFor(async () => {
+        expect((await deploymentCollection.findOne({_id: deploymentId}))?.status.phase)
+            .toBe("RUNNING");
         expect(executedRequests).toHaveLength(1);
     });
 });

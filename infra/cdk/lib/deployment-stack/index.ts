@@ -34,6 +34,7 @@ export interface DeploymentStackProps extends ClusterScopedStackProps {
 
 export class DeploymentStack extends ClusterScopedStack {
     /* eslint-disable max-lines-per-function */
+    // eslint-disable-next-line max-statements -- Keep stack resources and outputs together.
     constructor (scope: Construct, id: string, props: DeploymentStackProps) {
         super(scope, id, props);
 
@@ -179,6 +180,24 @@ export class DeploymentStack extends ClusterScopedStack {
             namespaceManifest: namespaceManifest,
         });
         this.suppressHelmKubectlProviderNags(cluster);
+
+        // eslint-disable-next-line no-new
+        new cdk.CfnOutput(this, "ArchiveBucketName", {
+            description: "S3 bucket for CLP archives and streams.",
+            value: storageBucket.bucketName,
+        });
+
+        // eslint-disable-next-line no-new
+        new cdk.CfnOutput(this, "PublicUrl", {
+            description: "Public URL for this CLP deployment.",
+            value: `https://${hostname}`,
+        });
+
+        // eslint-disable-next-line no-new
+        new cdk.CfnOutput(this, "S3AccessRoleArn", {
+            description: "IRSA role ARN for CLP service account S3 access.",
+            value: serviceAccountRole.roleArn,
+        });
     }
     /* eslint-enable max-lines-per-function */
 
