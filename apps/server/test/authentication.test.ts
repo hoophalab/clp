@@ -15,6 +15,7 @@ import {
     HTTP_STATUS_OK,
     HTTP_STATUS_UNAUTHORIZED,
 } from "../src/http-status.js";
+import {createUnusedAppOptions} from "./app-options-fixture.js";
 import {createRejectAllIdentityVerifier} from "./identity-verifier-fixture.js";
 
 
@@ -85,7 +86,10 @@ const createAuthenticationProbeApp = () => {
         identities: LOCAL_IDENTITIES,
     });
 
-    return createApp({identityVerifier: identityVerifier}).get(
+    return createApp({
+        ...createUnusedAppOptions(),
+        identityVerifier: identityVerifier,
+    }).get(
         "/api/v1/authentication-probe",
         (context) => context.json({ok: true}, HTTP_STATUS_OK),
     );
@@ -118,6 +122,7 @@ it("keeps health public without consulting the identity verifier", async () => {
         new Error("must not verify health requests"),
     ));
     const app = createApp({
+        ...createUnusedAppOptions(),
         identityVerifier: {
             auth0Issuer: AUTH0_ISSUER,
             verify: verify,
@@ -171,6 +176,7 @@ it.each(forbiddenIdentityTokens)(
 
 it("treats an undefined verifier result as rejected credentials", async () => {
     const app = createApp({
+        ...createUnusedAppOptions(),
         identityVerifier: {
             auth0Issuer: AUTH0_ISSUER,
             verify: () => Promise.resolve(),
@@ -185,6 +191,7 @@ it("treats an undefined verifier result as rejected credentials", async () => {
 
 it("rejects every protected request with the unconfigured default verifier", async () => {
     const response = await createApp({
+        ...createUnusedAppOptions(),
         identityVerifier: createRejectAllIdentityVerifier(),
     }).request("/api/v1/missing", {
         headers: {Authorization: "Bearer any-token"},
@@ -195,6 +202,7 @@ it("rejects every protected request with the unconfigured default verifier", asy
 
 it("shadows unknown protected routes behind the boundary", async () => {
     const response = await createApp({
+        ...createUnusedAppOptions(),
         identityVerifier: createRejectAllIdentityVerifier(),
     }).request("/api/v1/missing");
 
@@ -204,6 +212,7 @@ it("shadows unknown protected routes behind the boundary", async () => {
 it("passes the response's request ID to the verifier", async () => {
     const verify = vi.fn(() => Promise.resolve(null));
     const app = createApp({
+        ...createUnusedAppOptions(),
         identityVerifier: {
             auth0Issuer: AUTH0_ISSUER,
             verify: verify,

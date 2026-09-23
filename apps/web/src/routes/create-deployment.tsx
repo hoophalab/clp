@@ -26,6 +26,8 @@ import {
 } from "~/components/ui/field";
 import {Input} from "~/components/ui/input";
 import {Separator} from "~/components/ui/separator";
+import {useApiClient} from "~/hooks/use-api-client";
+import {useRegionSelection} from "~/hooks/use-regions";
 import {
     type ConsoleRouteHandle,
     DEPLOYMENT_BREADCRUMBS,
@@ -44,6 +46,13 @@ const handle = {
  * @return The deployment creation page.
  */
 const CreateDeploymentPage = () => {
+    const api = useApiClient();
+    const {
+        hasLoadFailed: hasRegionLoadFailed,
+        regions,
+        selectedRegion,
+        setRegionId,
+    } = useRegionSelection(api);
     const [name, setName] = useState("");
     const [nameTouched, setNameTouched] = useState(false);
     const nameInvalid = nameTouched && "" === name.trim();
@@ -111,7 +120,11 @@ const CreateDeploymentPage = () => {
                                     </FieldError> :
                                     null}
                             </Field>
-                            <DeploymentConfiguration/>
+                            <DeploymentConfiguration
+                                hasLoadFailed={hasRegionLoadFailed}
+                                regions={regions}
+                                selectedRegion={selectedRegion}
+                                onRegionChange={setRegionId}/>
                         </FieldGroup>
                         <Separator className={"xl:mt-auto"}/>
                         <Alert role={"status"}>
@@ -140,7 +153,9 @@ const CreateDeploymentPage = () => {
                         </div>
                     </form>
                 </div>
-                <DeploymentReview name={name}/>
+                <DeploymentReview
+                    name={name}
+                    selectedRegion={selectedRegion}/>
             </div>
         </main>
     );

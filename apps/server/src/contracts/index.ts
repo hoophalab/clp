@@ -9,3 +9,9 @@ export {
     type HealthResponse,
     HealthResponseSchema,
 } from "./health.js";
+export {
+    type ListRegionsResponse,
+    ListRegionsResponseSchema,
+    type ProviderRegions,
+    ProviderRegionsSchema,
+} from "./region.js";

@@ -6,6 +6,7 @@ import {
 import {createApp} from "../src/app.js";
 import {createLocalIdentityVerifier} from "../src/authentication.js";
 import {HTTP_STATUS_OK} from "../src/http-status.js";
+import {createUnusedAppOptions} from "./app-options-fixture.js";
 
 
 const AUTH0_ISSUER = "https://tenant.auth0.com/";
@@ -83,7 +84,10 @@ const createContextProbeApp = () => {
         identities: LOCAL_IDENTITIES,
     });
 
-    return createApp({identityVerifier: identityVerifier}).get(
+    return createApp({
+        ...createUnusedAppOptions(),
+        identityVerifier: identityVerifier,
+    }).get(
         "/api/v1/authentication-probe",
         (context) => context.json(
             {
@@ -128,7 +132,10 @@ it("reads the exact claim key the tenant's Action writes", async () => {
             ],
         ]),
     });
-    const app = createApp({identityVerifier: identityVerifier}).get(
+    const app = createApp({
+        ...createUnusedAppOptions(),
+        identityVerifier: identityVerifier,
+    }).get(
         "/api/v1/authentication-probe",
         (context) => context.json(
             {email: context.get("email")},

@@ -5,7 +5,12 @@ import {HTTP_STATUS_OK} from "../http-status.js";
 import {parseContractResponse} from "../response-validation.js";
 
 
-const healthRoutes = new Hono()
+/**
+ * Creates the public health route.
+ *
+ * @return The route reporting that the service is running.
+ */
+const createHealthRoutes = () => new Hono()
     .get("/", (context) => {
         const response = parseContractResponse(
             HealthResponseSchema,
@@ -15,4 +20,4 @@ const healthRoutes = new Hono()
         return context.json(response, HTTP_STATUS_OK);
     });
 
-export {healthRoutes};
+export {createHealthRoutes};

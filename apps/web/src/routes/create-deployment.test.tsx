@@ -18,13 +18,44 @@ import {
 import CreateDeploymentPage from "~/routes/create-deployment";
 
 
+const REGIONS = [
+    {
+        cloud_provider: "aws",
+        regions: ["ca-central-1",
+            "us-east-2"],
+    },
+];
+
+const auth = vi.hoisted(() => ({useAuth0: vi.fn()}));
+
+vi.mock("@auth0/auth0-react", () => auth);
+
+/**
+ * Answers the region catalog with a fixed response.
+ *
+ * @param regions The catalog the API reports.
+ * @return The stubbed fetch.
+ */
+const stubApi = (regions: unknown = REGIONS) => {
+    const fetch = vi.fn(() => Promise.resolve(Response.json(regions)));
+
+    auth.useAuth0.mockReturnValue({
+        getAccessTokenSilently: () => Promise.resolve("test-token"),
+    });
+    vi.stubGlobal("fetch", fetch);
+
+    return fetch;
+};
+
 afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    vi.clearAllMocks();
 });
 
 describe("CreateDeploymentPage", () => {
     it("keeps the review synchronized and validates an empty name on blur", () => {
+        stubApi();
         render(
             <MemoryRouter>
                 <CreateDeploymentPage/>
@@ -44,15 +75,38 @@ describe("CreateDeploymentPage", () => {
         expect(within(review).getByText("service-logs")).toBeVisible();
     });
 
-    it("blocks creation without supported configuration and never sends a request", () => {
-        const fetch = vi.fn();
-        vi.stubGlobal("fetch", fetch);
+    it("offers the regions the API reports", async () => {
+        stubApi();
         render(
             <MemoryRouter>
                 <CreateDeploymentPage/>
             </MemoryRouter>
         );
+        const review = screen.getByRole("complementary", {name: "Review deployment"});
+
+        expect(await within(review).findByText("ca-central-1")).toBeVisible();
+        expect(screen.getByRole("combobox", {name: "Region"})).toBeEnabled();
+    });
+
+    it("reports an empty catalog and keeps the region select disabled", async () => {
+        stubApi([]);
+        render(
+            <MemoryRouter>
+                <CreateDeploymentPage/>
+            </MemoryRouter>
+        );
+
+        expect(await screen.findByText("No regions are available yet.")).toBeVisible();
         expect(screen.getByRole("combobox", {name: "Region"})).toBeDisabled();
+    });
+
+    it("blocks creation without supported configuration and never creates anything", () => {
+        const fetch = stubApi();
+        render(
+            <MemoryRouter>
+                <CreateDeploymentPage/>
+            </MemoryRouter>
+        );
         const create = screen.getByRole("button", {name: "Create deployment"});
         expect(create).toBeDisabled();
         fireEvent.click(create);
@@ -60,7 +114,10 @@ describe("CreateDeploymentPage", () => {
         const form = screen.getByRole("form", {name: "Deployment details"});
         const submitted = fireEvent.submit(form);
         expect(submitted).toBe(false);
-        expect(fetch).not.toHaveBeenCalled();
+        expect(fetch).not.toHaveBeenCalledWith(
+            "/api/v1/deployments",
+            expect.anything(),
+        );
         expect(screen.getByText("Deployment creation is not available yet.")).toBeVisible();
         expect(screen.getByRole("link", {name: "Back"})).toHaveAttribute("href", "/");
         const activeStep = screen.getByText("Create deployment", {selector: "li span:last-child"});

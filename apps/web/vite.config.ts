@@ -5,13 +5,14 @@ import {defineConfig} from "vite";
 
 export default defineConfig({
     envDir: "../..",
+    plugins: [
+        tailwindcss(),
+        reactRouter(),
+    ],
 
     // Avoid prerender failures in CI when the server binds to IPv6 but requests use IPv4.
     // Ref: https://github.com/remix-run/react-router/pull/15325
     preview: {host: "127.0.0.1"},
     resolve: {tsconfigPaths: true},
-    plugins: [
-        tailwindcss(),
-        reactRouter(),
-    ],
+    server: {proxy: {"/api/v1": "http://127.0.0.1:5000"}},
 });

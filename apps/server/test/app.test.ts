@@ -37,6 +37,7 @@ import {
 } from "../src/http-status.js";
 import {requestValidator} from "../src/request-validation.js";
 import {parseContractResponse} from "../src/response-validation.js";
+import {createUnusedAppOptions} from "./app-options-fixture.js";
 import {createRejectAllIdentityVerifier} from "./identity-verifier-fixture.js";
 
 
@@ -86,6 +87,7 @@ afterEach(() => {
 
 it("returns a runtime-validated health response", async () => {
     const response = await createApp({
+        ...createUnusedAppOptions(),
         identityVerifier: createRejectAllIdentityVerifier(),
     }).request("/api/v1/health");
     const body: unknown = await response.json();
@@ -96,6 +98,7 @@ it("returns a runtime-validated health response", async () => {
 
 it("returns the safe error envelope for unknown public routes", async () => {
     const response = await createApp({
+        ...createUnusedAppOptions(),
         identityVerifier: createRejectAllIdentityVerifier(),
     }).request("/missing");
     const body: unknown = await response.json();

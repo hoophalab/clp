@@ -1,6 +1,7 @@
 import {Hono} from "hono";
 import type {ApplyGlobalResponse} from "hono/client";
 import {requestId} from "hono/request-id";
+import type {Db} from "mongodb";
 
 import {
     createAuthenticationMiddleware,
@@ -18,10 +19,12 @@ import {
     HTTP_STATUS_INTERNAL_SERVER_ERROR,
     HTTP_STATUS_UNAUTHORIZED,
 } from "./http-status.js";
-import {healthRoutes} from "./routes/health.js";
+import {createHealthRoutes} from "./routes/health.js";
+import {createRegionRoutes} from "./routes/regions.js";
 
 
 type CreateAppOptions = {
+    database: Db;
     identityVerifier: IdentityVerifier;
 };
 
@@ -37,13 +40,18 @@ type CreateAppOptions = {
  * present a bearer token that the identity verifier accepts.
  *
  * @param options App construction options.
+ * @param options.database Metadata database the routes read and write.
  * @param options.identityVerifier The bearer identity verifier.
  * @return The configured Hono application.
  */
-const createApp = ({identityVerifier}: CreateAppOptions) => {
+const createApp = ({
+    database,
+    identityVerifier,
+}: CreateAppOptions) => {
     return new Hono<ServerEnv>()
         .use("*", requestId({limitLength: 0}))
-        .route("/api/v1/health", healthRoutes)
+        .route("/api/v1/health", createHealthRoutes())
+        .route("/api/v1/regions", createRegionRoutes(database))
         .use("/api/v1/*", createAuthenticationMiddleware(identityVerifier))
         .notFound(handleNotFound)
         .onError(handleAppError);

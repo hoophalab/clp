@@ -45,6 +45,8 @@ jobs:
 
       - run: "pnpm install --frozen-lockfile"
 
+      - run: "pnpm --filter @cloud.yscope.com/${{matrix.app}}^... run build"
+
       - run: "pnpm --filter @cloud.yscope.com/${{matrix.app}} run typecheck"
 
       - run: "pnpm --filter @cloud.yscope.com/${{matrix.app}} run build"

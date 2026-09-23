@@ -11,6 +11,7 @@ import {createApp} from "../src/app.js";
 import type {ServerEnv} from "../src/environment.js";
 import {handleAppError} from "../src/errors.js";
 import {HTTP_STATUS_INTERNAL_SERVER_ERROR} from "../src/http-status.js";
+import {createUnusedAppOptions} from "./app-options-fixture.js";
 import {createRejectAllIdentityVerifier} from "./identity-verifier-fixture.js";
 
 
@@ -30,6 +31,7 @@ afterEach(() => {
 
 it("returns a generated request ID", async () => {
     const response = await createApp({
+        ...createUnusedAppOptions(),
         identityVerifier: createRejectAllIdentityVerifier(),
     }).request("/api/v1/health");
 
@@ -38,6 +40,7 @@ it("returns a generated request ID", async () => {
 
 it("ignores a caller-supplied request ID", async () => {
     const response = await createApp({
+        ...createUnusedAppOptions(),
         identityVerifier: createRejectAllIdentityVerifier(),
     }).request("/api/v1/health", {
         headers: {[REQUEST_ID_HEADER]: "caller-chosen-id"},
@@ -50,6 +53,7 @@ it("ignores a caller-supplied request ID", async () => {
 
 it("gives concurrent requests distinct request IDs", async () => {
     const app = createApp({
+        ...createUnusedAppOptions(),
         identityVerifier: createRejectAllIdentityVerifier(),
     });
     const responses = await Promise.all([

@@ -10,6 +10,7 @@ import {
     readMetadataDbUri,
 } from "./configuration.js";
 import {MetadataDb} from "./metadata-db.js";
+import {ensureIndexes} from "./metadata-db-indexes.js";
 
 
 const DEFAULT_HOSTNAME = "0.0.0.0";
@@ -29,8 +30,13 @@ const metadataDb = new MetadataDb(
 
 await metadataDb.connect();
 
+const database = metadataDb.getDatabase();
+
+await ensureIndexes(database);
+
 const clusterDatabaseManager = new ClusterDatabaseManager();
 const app = createApp({
+    database: database,
     identityVerifier: createAuth0IdentityVerifier(
         readAuth0Configuration(process.env),
     ),

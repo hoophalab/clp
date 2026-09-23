@@ -21,3 +21,8 @@ export {
     type RequestResultDeploymentPhase,
     RequestResultDeploymentPhaseSchema,
 } from "./deployment.js";
+export {
+    type RegionDocument,
+    RegionDocumentSchema,
+    REGIONS_COLLECTION,
+} from "./region.js";
