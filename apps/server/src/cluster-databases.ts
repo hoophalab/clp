@@ -16,6 +16,7 @@ const KEEP_ALIVE_DELAY_MS = 10_000;
 const POOL_CONNECTION_LIMIT = 4;
 
 const DatabaseCredentialsSchema = z.object({
+    dbname: z.string().min(1),
     host: z.string().min(1),
     password: z.string().min(1),
     port: z.coerce.number().int()
@@ -31,7 +32,7 @@ const DatabaseCredentialsSchema = z.object({
  *
  * @param region AWS region of the cluster.
  * @param clusterId Cluster whose database stack exports the secret ARN.
- * @return The database host, port, and admin credentials.
+ * @return The database host, port, name, and admin credentials.
  * @throws {Error} When the export or secret is missing or malformed.
  */
 const readDatabaseCredentials = async (region: string, clusterId: string) => {
@@ -113,6 +114,7 @@ class ClusterDatabaseManager {
             return mysql.createPool({
                 connectTimeout: CONNECT_TIMEOUT_MS,
                 connectionLimit: POOL_CONNECTION_LIMIT,
+                database: credentials.dbname,
                 enableKeepAlive: true,
                 host: credentials.host,
                 keepAliveInitialDelay: KEEP_ALIVE_DELAY_MS,
@@ -122,6 +124,7 @@ class ClusterDatabaseManager {
                     ca: awsSslProfiles.ca,
                     verifyIdentity: true,
                 },
+                timezone: "Z",
                 user: credentials.username,
             });
         })().catch((error: unknown) => {
