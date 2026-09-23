@@ -1,7 +1,7 @@
 use std::{
     env,
     sync::{Arc, LazyLock},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use axum::{
@@ -27,6 +27,9 @@ use tracing_appender::non_blocking::{NonBlockingBuilder, WorkerGuard};
 use tracing_subscriber::EnvFilter;
 
 const USER_ID_HEADER: &str = "x-auth0-user-id";
+// Bounds how long a revoked token or removed user keeps working on a replica
+// that cached the record before the change. The cloud console shows this as
+// the revocation countdown, so keep the two in sync (see values.yaml).
 const DEFAULT_ACCESS_CACHE_TTL_SECONDS: u64 = 60;
 const DEFAULT_ACCESS_CACHE_MAX_ENTRIES: u64 = 10_000;
 const TOKEN_SECRET_BYTES: usize = 32;
@@ -55,6 +58,10 @@ struct AccessCacheKey {
 struct ApiTokenRecord {
     secret_hash: Vec<u8>,
     deployment_id: String,
+    /// When the token stops being honoured: the earlier of its expiry and its
+    /// revocation. Fixed when the record is fetched so that a cached record
+    /// enforces it without another database query.
+    valid_until: Instant,
 }
 
 struct App {
@@ -180,9 +187,16 @@ async fn authorize_api_token(State(app): State<Arc<App>>, headers: HeaderMap) ->
         Some(record) => record,
         None => {
             info!(host, deployment_id, "querying database for API token");
-            let row = match sqlx::query_as::<_, (Vec<u8>, Vec<u8>)>(
-                "SELECT secret_hash, deployment_id FROM api_tokens \
-                 WHERE id = ? AND expires_at > UTC_TIMESTAMP(6) LIMIT 1",
+            // The database reports how long the token remains valid so that
+            // every replica agrees on the clock. Anchoring to an instant taken
+            // before the query errs towards rejecting slightly early rather
+            // than late.
+            let fetched_at = Instant::now();
+            let row = match sqlx::query_as::<_, (Vec<u8>, Vec<u8>, i64)>(
+                "SELECT secret_hash, deployment_id, \
+                 TIMESTAMPDIFF(MICROSECOND, UTC_TIMESTAMP(6), \
+                 LEAST(expires_at, COALESCE(revoked_at, expires_at))) \
+                 FROM api_tokens WHERE id = ? LIMIT 1",
             )
             .bind(selector.as_slice())
             .fetch_optional(&app.pool)
@@ -199,7 +213,7 @@ async fn authorize_api_token(State(app): State<Arc<App>>, headers: HeaderMap) ->
                     return StatusCode::INTERNAL_SERVER_ERROR;
                 }
             };
-            let Some((secret_hash, raw_deployment_id)) = row else {
+            let Some((secret_hash, raw_deployment_id, valid_for_micros)) = row else {
                 return StatusCode::UNAUTHORIZED;
             };
             let deployment_id = match String::from_utf8(raw_deployment_id) {
@@ -214,14 +228,26 @@ async fn authorize_api_token(State(app): State<Arc<App>>, headers: HeaderMap) ->
                     return StatusCode::INTERNAL_SERVER_ERROR;
                 }
             };
+            // A negative remainder means the token is already expired or
+            // revoked; caching it as such avoids re-querying until the cache
+            // entry ages out.
             let record = ApiTokenRecord {
                 secret_hash,
                 deployment_id,
+                valid_until: fetched_at
+                    + Duration::from_micros(u64::try_from(valid_for_micros).unwrap_or(0)),
             };
             app.api_token_cache.insert(selector, record.clone()).await;
             record
         }
     };
+    if Instant::now() >= record.valid_until {
+        debug!(
+            host,
+            deployment_id, "API token authorization denied: expired or revoked."
+        );
+        return StatusCode::UNAUTHORIZED;
+    }
     if !bool::from(record.secret_hash.ct_eq(Sha256::digest(secret).as_slice())) {
         return StatusCode::UNAUTHORIZED;
     }
