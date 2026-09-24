@@ -6,7 +6,7 @@ import {
     Collection,
     type Db,
 } from "mongodb";
-import {MongoMemoryReplSet} from "mongodb-memory-server-core";
+import {MongoMemoryReplSet} from "mongodb-memory-server";
 import {
     afterAll,
     afterEach,
@@ -41,7 +41,7 @@ vi.mock(import("node:timers/promises"), async (importOriginal) => {
     return {...actual, setTimeout: vi.fn(actual.setTimeout) as typeof actual.setTimeout};
 });
 
-const INTEGRATION_TIMEOUT_MS = 60_000;
+const INTEGRATION_TIMEOUT_MS = 300_000;
 const OUTAGE_DETECTION_TIMEOUT_MS = 10_000;
 const STATUS_POLL_INTERVAL_MS = 30_000;
 const MIN_THROTTLE_DELAY_MS = 1_000;
@@ -158,7 +158,10 @@ let database: Db;
 let deployments: Collection<DeploymentDocument>;
 
 beforeAll(async () => {
-    memoryReplicaSet = await MongoMemoryReplSet.create({replSet: {count: 1}});
+    memoryReplicaSet = await MongoMemoryReplSet.create({
+        instanceOpts: [{launchTimeout: INTEGRATION_TIMEOUT_MS}],
+        replSet: {count: 1},
+    });
     metadataDb = new MetadataDb(memoryReplicaSet.getUri("request-executor-tests"));
     await metadataDb.connect();
     database = metadataDb.getDatabase();
@@ -430,7 +433,10 @@ it(
     "recovers from a real MongoDB outage during the deployment read",
     // eslint-disable-next-line max-statements -- Keep outage, recovery, and cleanup together.
     async () => {
-        const outageReplicaSet = await MongoMemoryReplSet.create({replSet: {count: 1}});
+        const outageReplicaSet = await MongoMemoryReplSet.create({
+            instanceOpts: [{launchTimeout: INTEGRATION_TIMEOUT_MS}],
+            replSet: {count: 1},
+        });
         const uri = outageReplicaSet.getUri("request-executor-outage");
         const outageMetadataDb = new MetadataDb(`${uri}&heartbeatFrequencyMS=500`);
         let execution: ReturnType<DeploymentRequestExecutor["execute"]> | undefined;

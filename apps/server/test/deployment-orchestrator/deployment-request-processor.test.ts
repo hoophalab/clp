@@ -5,7 +5,7 @@ import {
     Collection,
     type Db,
 } from "mongodb";
-import {MongoMemoryReplSet} from "mongodb-memory-server-core";
+import {MongoMemoryReplSet} from "mongodb-memory-server";
 import {
     afterAll,
     afterEach,
@@ -46,7 +46,7 @@ const EXISTING_OUTPUTS = {
     public_url: "https://previous.cloud.yscope.com",
     s3_access_role_arn: "arn:aws:iam::123456789012:role/previous-s3-access",
 };
-const INTEGRATION_TIMEOUT_MS = 60_000;
+const INTEGRATION_TIMEOUT_MS = 300_000;
 const COMPLETED_AT = new Date("2026-08-27T00:01:00.000Z");
 const SINGLE_WORKER_CONCURRENCY = 1;
 const TWO_WORKER_CONCURRENCY = 2;
@@ -63,7 +63,10 @@ let database: Db;
 let deployments: Collection<DeploymentDocument>;
 
 beforeAll(async () => {
-    memoryServer = await MongoMemoryReplSet.create({replSet: {count: 1}});
+    memoryServer = await MongoMemoryReplSet.create({
+        instanceOpts: [{launchTimeout: INTEGRATION_TIMEOUT_MS}],
+        replSet: {count: 1},
+    });
     metadataDb = new MetadataDb(memoryServer.getUri("request-processor-tests"));
     await metadataDb.connect();
     database = metadataDb.getDatabase();
@@ -554,11 +557,12 @@ it(
     "recovers from a real MongoDB outage while saving the result without executing again",
     // eslint-disable-next-line max-statements -- Keep outage, recovery, and cleanup together.
     async () => {
-        const outageServer = await MongoMemoryReplSet.create({replSet: {count: 1}});
-        const uri = outageServer.getUri("request-processor-outage");
-        const outageMetadataDb = new MetadataDb(
-            `${uri}&heartbeatFrequencyMS=500`,
+        const outageReplicaSet = await MongoMemoryReplSet.create(
+            {instanceOpts: [{launchTimeout: INTEGRATION_TIMEOUT_MS}], replSet: {count: 1}},
         );
+        const [outageServer] = outageReplicaSet.servers;
+        const uri = outageReplicaSet.getUri("request-processor-outage");
+        const outageMetadataDb = new MetadataDb(`${uri}&heartbeatFrequencyMS=500`);
 
         try {
             await outageMetadataDb.connect();
@@ -601,23 +605,23 @@ it(
 
             await vi.waitFor(() => {
                 expect(updateOne).toHaveBeenCalledTimes(1);
-            });
+            }, {timeout: INTEGRATION_TIMEOUT_MS});
             expect(logError).not.toHaveBeenCalled();
             expect(outageServer.state).toBe("stopped");
             expect(execute).toHaveBeenCalledTimes(1);
 
-            await outageServer.start();
-            expect(outageServer.getUri("request-processor-outage")).toBe(uri);
+            await outageServer.start(true);
+            expect(outageReplicaSet.getUri("request-processor-outage")).toBe(uri);
             await vi.waitFor(async () => {
                 const stored = await outageDeployments.findOne({_id: request.deploymentId});
                 expect(stored?.status.phase).toBe("RUNNING");
-            });
+            }, {timeout: INTEGRATION_TIMEOUT_MS});
             expect(execute).toHaveBeenCalledTimes(1);
             expect(updateOne).toHaveBeenCalledTimes(1);
             expect(logError).not.toHaveBeenCalled();
         } finally {
             await outageMetadataDb.close();
-            await outageServer.stop();
+            await outageReplicaSet.stop();
         }
     },
     INTEGRATION_TIMEOUT_MS

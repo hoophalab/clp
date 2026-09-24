@@ -2,7 +2,7 @@ import type {
     Collection,
     Db,
 } from "mongodb";
-import {MongoMemoryServer} from "mongodb-memory-server-core";
+import {MongoMemoryServer} from "mongodb-memory-server";
 import {
     afterAll,
     beforeAll,
@@ -29,7 +29,7 @@ import {
 
 
 const DEPLOYMENTS_COLLECTION_NAME = "deployments";
-const METADATA_DB_SETUP_TIMEOUT_MILLISECS = 60_000;
+const METADATA_DB_SETUP_TIMEOUT_MILLISECS = 300_000;
 const OWNER_ID = "owner-a";
 const REQUESTED_AT = new Date("2026-08-25T12:00:00.000Z");
 const DEPLOYMENT_OUTPUTS = {
@@ -115,7 +115,9 @@ let mongoServer: MongoMemoryServer;
 let orchestrator: DeploymentOrchestrator;
 
 beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
+    mongoServer = await MongoMemoryServer.create({
+        instance: {launchTimeout: METADATA_DB_SETUP_TIMEOUT_MILLISECS},
+    });
     metadataDb = new MetadataDb(
         mongoServer.getUri("deployment-orchestrator-integration"),
     );

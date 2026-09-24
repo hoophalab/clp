@@ -51,4 +51,10 @@ jobs:
 
       - run: "pnpm --filter @cloud.yscope.com/${{matrix.app}} run build"
 
-      - run: "pnpm --filter @cloud.yscope.com/${{matrix.app}} run test"
+      # Shared CI runners can be slow, so give tests, hooks, and teardown more time than Vitest's
+      # defaults.
+      - run: >-
+          pnpm --filter @cloud.yscope.com/${{matrix.app}} run test
+          --testTimeout=300000
+          --hookTimeout=300000
+          --teardownTimeout=300000

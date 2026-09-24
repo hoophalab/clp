@@ -2,7 +2,7 @@ import {
     type CommandStartedEvent,
     MongoOperationTimeoutError,
 } from "mongodb";
-import {MongoMemoryReplSet} from "mongodb-memory-server-core";
+import {MongoMemoryReplSet} from "mongodb-memory-server";
 import {
     afterAll,
     afterEach,
@@ -14,7 +14,7 @@ import {
 import {MetadataDb} from "../src/metadata-db.js";
 
 
-const INTEGRATION_TIMEOUT_MS = 60_000;
+const INTEGRATION_TIMEOUT_MS = 300_000;
 const DATABASE_TIMEOUT_MS = 120_000;
 const SHORT_OPERATION_TIMEOUT_MS = 100;
 const BLOCKED_COMMAND_MS = 1_000;
@@ -24,6 +24,7 @@ let metadataDb: MetadataDb;
 
 beforeAll(async () => {
     memoryServer = await MongoMemoryReplSet.create({
+        instanceOpts: [{launchTimeout: INTEGRATION_TIMEOUT_MS}],
         replSet: {
             count: 1,
             args: [

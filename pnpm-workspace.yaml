@@ -5,4 +5,5 @@ packages:
 allowBuilds:
   browser-tabs-lock: false
   esbuild: true
+  mongodb-memory-server: true
   unrs-resolver: true
