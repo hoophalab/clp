@@ -5,6 +5,7 @@ import type {Db} from "mongodb";
 import {
     type DeploymentDocument,
     DeploymentDocumentSchema,
+    DEPLOYMENTS_COLLECTION,
 } from "../metadata-db-schemas/deployment.js";
 import {
     type CdkCommandResult,
@@ -275,7 +276,7 @@ class DeploymentRequestExecutor {
     private async readDeploymentDocument (
         request: DeploymentRequest,
     ): Promise<DeploymentDocument> {
-        const deployments = this.database.collection<DeploymentDocument>("deployments");
+        const deployments = this.database.collection<DeploymentDocument>(DEPLOYMENTS_COLLECTION);
         const deploymentDocument = await deployments.findOne(
             {_id: request.deploymentId},
         );

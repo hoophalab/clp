@@ -7,8 +7,13 @@ import {createAuth0IdentityVerifier} from "./auth0-identity-verifier.js";
 import {ClusterDatabaseManager} from "./cluster-databases.js";
 import {
     readAuth0Configuration,
+    readClusterSecret,
     readMetadataDbUri,
 } from "./configuration.js";
+import {
+    DeploymentOrchestrator,
+    DeploymentRequestExecutor,
+} from "./deployment-orchestrator/index.js";
 import {MetadataDb} from "./metadata-db.js";
 import {ensureIndexes} from "./metadata-db-indexes.js";
 
@@ -35,8 +40,24 @@ const database = metadataDb.getDatabase();
 await ensureIndexes(database);
 
 const clusterDatabaseManager = new ClusterDatabaseManager();
-const app = createApp({
+const deploymentRequestExecutor = new DeploymentRequestExecutor({
+    clusterSecret: readClusterSecret(process.env),
     database: database,
+});
+const deploymentOrchestrator = new DeploymentOrchestrator(
+    database,
+    deploymentRequestExecutor,
+);
+
+deploymentOrchestrator.runProcessor().catch((error: unknown) => {
+    console.error("Deployment request processing stopped unexpectedly.", error);
+    process.exitCode = 1;
+});
+
+const app = createApp({
+    clusterDatabaseManager: clusterDatabaseManager,
+    database: database,
+    deploymentOrchestrator: deploymentOrchestrator,
     identityVerifier: createAuth0IdentityVerifier(
         readAuth0Configuration(process.env),
     ),

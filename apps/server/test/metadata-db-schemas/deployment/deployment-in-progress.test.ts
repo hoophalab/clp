@@ -30,11 +30,11 @@ const createInProgressDeploymentDocument = (phase: InProgressDeploymentPhase) =>
         cloud_provider: "aws",
         clp_image_tag: "1.2.3",
         cluster_id: "default",
-        compression_workers: 4,
         deployment_name: "valid-deployment",
         helm_chart_version: "1.2.3",
+        num_compression_workers: 4,
+        num_search_workers: 8,
         region: "ca-central-1",
-        search_workers: 8,
     },
     status: {
         phase: phase,
@@ -46,7 +46,7 @@ const createInProgressDeploymentDocument = (phase: InProgressDeploymentPhase) =>
                 {
                     pending_update: {
                         requested_by: "requester-a",
-                        spec_patch: {compression_workers: 8},
+                        spec_patch: {num_compression_workers: 8},
                     },
                 } :
                 {}
@@ -79,7 +79,7 @@ describe("in-progress deployments", () => {
         },
         {
             description: "an invalid specification patch",
-            specPatch: {compression_workers: 0},
+            specPatch: {num_compression_workers: 0},
         },
     ])("rejects CONFIGURING with $description", ({specPatch}) => {
         const deployment = createInProgressDeploymentDocument("CONFIGURING");
@@ -107,7 +107,7 @@ describe("in-progress deployments", () => {
                     ...deployment.status,
                     pending_update: {
                         requested_by: "requester-a",
-                        spec_patch: {compression_workers: 8},
+                        spec_patch: {num_compression_workers: 8},
                     },
                 },
             }).success).toBe(false);

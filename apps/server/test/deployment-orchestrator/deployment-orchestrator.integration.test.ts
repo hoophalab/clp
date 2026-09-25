@@ -81,11 +81,11 @@ const createDeploymentDocument = (
         cloud_provider: "aws",
         clp_image_tag: "1.2.3",
         cluster_id: "default",
-        compression_workers: 4,
         deployment_name: "test-deployment",
         helm_chart_version: "1.2.3",
+        num_compression_workers: 4,
+        num_search_workers: 4,
         region: "ca-central-1",
-        search_workers: 4,
     },
     status: {
         phase_transition_records: {
@@ -98,7 +98,7 @@ const createDeploymentDocument = (
                 {
                     pending_update: {
                         requested_by: "requester-a",
-                        spec_patch: {compression_workers: 8},
+                        spec_patch: {num_compression_workers: 8},
                     },
                     phase: phase,
                 } :
@@ -251,7 +251,7 @@ it("rejects scheduling a deployment with an invalid specification", async () => 
     await deploymentCollection.insertOne(deployment);
     await deploymentCollection.updateOne(
         {_id: deploymentId},
-        {$set: {"spec.compression_workers": "invalid"}},
+        {$set: {"spec.num_compression_workers": "invalid"}},
     );
 
     await expect(orchestrator.schedule(deploymentId)).rejects.toThrow();

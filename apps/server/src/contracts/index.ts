@@ -1,5 +1,13 @@
 export type {AppType} from "../app.js";
 export {
+    type CheckDeploymentNameResponse,
+    CheckDeploymentNameResponseSchema,
+    type CreateDeploymentRequest,
+    CreateDeploymentRequestSchema,
+    type DeploymentResponse,
+    DeploymentResponseSchema,
+} from "./deployment.js";
+export {
     type ErrorCode,
     ErrorCodeSchema,
     type ErrorEnvelope,

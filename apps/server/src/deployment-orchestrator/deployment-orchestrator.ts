@@ -8,6 +8,7 @@ import type {
 import {
     type DeploymentDocument,
     DeploymentDocumentSchema,
+    DEPLOYMENTS_COLLECTION,
     type InProgressDeploymentPhase,
     type RequestedDeploymentPhase,
     RequestedDeploymentPhaseSchema,
@@ -21,8 +22,6 @@ import type {DeploymentRequestExecutor} from "./deployment-request-executor.js";
 import {DeploymentRequestProcessor} from "./deployment-request-processor.js";
 import {DeploymentRequestQueues} from "./deployment-request-queues.js";
 
-
-const DEPLOYMENTS_COLLECTION_NAME = "deployments";
 
 type RequestProperties = Readonly<{
     action: DeploymentAction;
@@ -76,7 +75,7 @@ class DeploymentOrchestrator {
         requestExecutor: DeploymentRequestExecutor,
     ) {
         this.deployments = database.collection<DeploymentDocument>(
-            DEPLOYMENTS_COLLECTION_NAME,
+            DEPLOYMENTS_COLLECTION,
         );
         this.requestQueues = new DeploymentRequestQueues();
         this.requestProcessor = new DeploymentRequestProcessor(

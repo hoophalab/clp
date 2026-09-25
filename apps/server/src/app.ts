@@ -7,7 +7,9 @@ import {
     createAuthenticationMiddleware,
     type IdentityVerifier,
 } from "./authentication.js";
+import type {ClusterDatabaseManager} from "./cluster-databases.js";
 import type {ErrorEnvelope} from "./contracts/error.js";
+import type {DeploymentOrchestrator} from "./deployment-orchestrator/index.js";
 import type {ServerEnv} from "./environment.js";
 import {
     handleAppError,
@@ -19,12 +21,15 @@ import {
     HTTP_STATUS_INTERNAL_SERVER_ERROR,
     HTTP_STATUS_UNAUTHORIZED,
 } from "./http-status.js";
+import {createDeploymentRoutes} from "./routes/deployments.js";
 import {createHealthRoutes} from "./routes/health.js";
 import {createRegionRoutes} from "./routes/regions.js";
 
 
 type CreateAppOptions = {
+    clusterDatabaseManager: ClusterDatabaseManager;
     database: Db;
+    deploymentOrchestrator: DeploymentOrchestrator;
     identityVerifier: IdentityVerifier;
 };
 
@@ -40,12 +45,16 @@ type CreateAppOptions = {
  * present a bearer token that the identity verifier accepts.
  *
  * @param options App construction options.
+ * @param options.clusterDatabaseManager
  * @param options.database Metadata database the routes read and write.
+ * @param options.deploymentOrchestrator
  * @param options.identityVerifier The bearer identity verifier.
  * @return The configured Hono application.
  */
 const createApp = ({
+    clusterDatabaseManager,
     database,
+    deploymentOrchestrator,
     identityVerifier,
 }: CreateAppOptions) => {
     return new Hono<ServerEnv>()
@@ -53,6 +62,11 @@ const createApp = ({
         .route("/api/v1/health", createHealthRoutes())
         .route("/api/v1/regions", createRegionRoutes(database))
         .use("/api/v1/*", createAuthenticationMiddleware(identityVerifier))
+        .route("/api/v1/deployments", createDeploymentRoutes({
+            clusterDatabaseManager: clusterDatabaseManager,
+            database: database,
+            deploymentOrchestrator: deploymentOrchestrator,
+        }))
         .notFound(handleNotFound)
         .onError(handleAppError);
 };

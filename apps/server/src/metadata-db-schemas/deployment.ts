@@ -1,6 +1,8 @@
 import * as z from "zod";
 
 
+const DEPLOYMENTS_COLLECTION = "deployments";
+
 const REQUESTED_PHASES = [
     "CONFIG_REQUESTED",
     "CREATE_REQUESTED",
@@ -70,19 +72,19 @@ const DeploymentSpecSchema = z.strictObject({
     cloud_provider: z.literal("aws"),
     clp_image_tag: z.string(),
     cluster_id: z.string(),
-    compression_workers: WorkerCountSchema,
     deployment_name: z.string(),
     helm_chart_version: z.string(),
+    num_compression_workers: WorkerCountSchema,
+    num_search_workers: WorkerCountSchema,
     region: z.string(),
-    search_workers: WorkerCountSchema,
 });
 
 const DeploymentSpecPatchShape = {
     clp_image_tag: DeploymentSpecSchema.shape.clp_image_tag.exactOptional(),
-    compression_workers: DeploymentSpecSchema.shape.compression_workers.exactOptional(),
     deployment_name: DeploymentSpecSchema.shape.deployment_name.exactOptional(),
     helm_chart_version: DeploymentSpecSchema.shape.helm_chart_version.exactOptional(),
-    search_workers: DeploymentSpecSchema.shape.search_workers.exactOptional(),
+    num_compression_workers: DeploymentSpecSchema.shape.num_compression_workers.exactOptional(),
+    num_search_workers: DeploymentSpecSchema.shape.num_search_workers.exactOptional(),
 };
 
 const DeploymentSpecPatchSchema = z.union([
@@ -92,7 +94,7 @@ const DeploymentSpecPatchSchema = z.union([
     }),
     z.strictObject({
         ...DeploymentSpecPatchShape,
-        compression_workers: DeploymentSpecSchema.shape.compression_workers,
+        num_compression_workers: DeploymentSpecSchema.shape.num_compression_workers,
     }),
     z.strictObject({
         ...DeploymentSpecPatchShape,
@@ -104,7 +106,7 @@ const DeploymentSpecPatchSchema = z.union([
     }),
     z.strictObject({
         ...DeploymentSpecPatchShape,
-        search_workers: DeploymentSpecSchema.shape.search_workers,
+        num_search_workers: DeploymentSpecSchema.shape.num_search_workers,
     }),
 ]);
 
@@ -202,6 +204,7 @@ export {
     DeploymentMetadataSchema,
     type DeploymentPhase,
     DeploymentPhaseSchema,
+    DEPLOYMENTS_COLLECTION,
     type DeploymentSpec,
     type DeploymentSpecPatch,
     DeploymentSpecPatchSchema,
@@ -216,4 +219,5 @@ export {
     RequestedDeploymentPhaseSchema,
     type RequestResultDeploymentPhase,
     RequestResultDeploymentPhaseSchema,
+    WorkerCountSchema,
 };

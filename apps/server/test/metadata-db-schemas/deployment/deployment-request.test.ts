@@ -21,11 +21,11 @@ const createDeploymentSpec = () => ({
     cloud_provider: "aws",
     clp_image_tag: "0.5.0-main-test",
     cluster_id: "default",
-    compression_workers: 4,
     deployment_name: "valid-deployment",
     helm_chart_version: "1.2.3",
+    num_compression_workers: 4,
+    num_search_workers: 8,
     region: "ca-central-1",
-    search_workers: 8,
 });
 
 /**
@@ -35,7 +35,7 @@ const createDeploymentSpec = () => ({
  * @return A deployment specification patch.
  */
 const createSpecPatch = (
-    specPatch: DeploymentSpecPatch = {compression_workers: 8},
+    specPatch: DeploymentSpecPatch = {num_compression_workers: 8},
 ) => specPatch;
 
 /**
@@ -131,15 +131,15 @@ const INVALID_CREATE_REQUESTS = [
             ...createDeploymentDocument("CREATE_REQUESTED"),
             spec: {
                 ...createDeploymentSpec(),
-                compression_workers: 0,
+                num_compression_workers: 0,
             },
         }),
     },
     {
-        description: "a specification missing compression_workers",
+        description: "a specification missing num_compression_workers",
         createRequest: () => {
             const deployment = createDeploymentDocument("CREATE_REQUESTED");
-            Reflect.deleteProperty(deployment.spec, "compression_workers");
+            Reflect.deleteProperty(deployment.spec, "num_compression_workers");
 
             return deployment;
         },
@@ -183,16 +183,16 @@ const DELETE_SUSPEND_RESUME_REQUESTS = [
 
 const VALID_SPEC_PATCHES = [
     {clp_image_tag: "0.5.1-main-test"},
-    {compression_workers: 8},
+    {num_compression_workers: 8},
     {deployment_name: "updated-deployment"},
     {helm_chart_version: "1.2.4"},
-    {search_workers: 12},
+    {num_search_workers: 12},
     {
         clp_image_tag: "0.5.1-main-test",
-        compression_workers: 8,
         deployment_name: "updated-deployment",
         helm_chart_version: "1.2.4",
-        search_workers: 12,
+        num_compression_workers: 8,
+        num_search_workers: 12,
     },
 ] as const satisfies ReadonlyArray<DeploymentSpecPatch>;
 
@@ -200,9 +200,9 @@ const INVALID_SPEC_PATCHES = [
     {
         description: "an undefined patch field alongside a valid field",
         specPatch: {
-            compression_workers: 8,
+            num_compression_workers: 8,
             // eslint-disable-next-line no-undefined -- Explicit undefined is the input under test.
-            search_workers: undefined,
+            num_search_workers: undefined,
         },
     },
     {
@@ -215,7 +215,7 @@ const INVALID_SPEC_PATCHES = [
     },
     {
         description: "zero compression workers",
-        specPatch: {compression_workers: 0},
+        specPatch: {num_compression_workers: 0},
     },
 ] as const;
 

@@ -46,7 +46,27 @@ const readMetadataDbUri = (
     return uri.trim();
 };
 
+/**
+ * Reads the secret used to derive deployment database credentials.
+ *
+ * @param environment Process environment containing runtime configuration.
+ * @return The configured cluster secret.
+ * @throws When CLUSTER_SECRET is absent or blank.
+ */
+const readClusterSecret = (
+    environment: NodeJS.ProcessEnv,
+): string => {
+    const clusterSecret = environment.CLUSTER_SECRET?.trim();
+
+    if (!clusterSecret) {
+        throw new Error("CLUSTER_SECRET must be configured.");
+    }
+
+    return clusterSecret;
+};
+
 export {
     readAuth0Configuration,
+    readClusterSecret,
     readMetadataDbUri,
 };

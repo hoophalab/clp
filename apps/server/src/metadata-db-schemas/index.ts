@@ -6,6 +6,7 @@ export {
     DeploymentMetadataSchema,
     type DeploymentPhase,
     DeploymentPhaseSchema,
+    DEPLOYMENTS_COLLECTION,
     type DeploymentSpec,
     type DeploymentSpecPatch,
     DeploymentSpecPatchSchema,
@@ -20,6 +21,7 @@ export {
     RequestedDeploymentPhaseSchema,
     type RequestResultDeploymentPhase,
     RequestResultDeploymentPhaseSchema,
+    WorkerCountSchema,
 } from "./deployment.js";
 export {
     type RegionDocument,

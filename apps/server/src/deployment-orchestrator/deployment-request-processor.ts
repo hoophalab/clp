@@ -1,9 +1,10 @@
 import type {Db} from "mongodb";
 
-import type {
-    DeploymentDocument,
-    InProgressDeploymentPhase,
-    RequestResultDeploymentPhase,
+import {
+    type DeploymentDocument,
+    DEPLOYMENTS_COLLECTION,
+    type InProgressDeploymentPhase,
+    type RequestResultDeploymentPhase,
 } from "../metadata-db-schemas/deployment.js";
 import {
     type DeploymentOutputs,
@@ -52,7 +53,7 @@ const writeDeploymentResult = async (
     request: DeploymentRequest,
     result: DeploymentResult,
 ): Promise<void> => {
-    const deployments = database.collection<DeploymentDocument>("deployments");
+    const deployments = database.collection<DeploymentDocument>(DEPLOYMENTS_COLLECTION);
     const completedAt = new Date();
     const transitionPath = `status.phase_transition_records.${result.phase}`;
     const update = {

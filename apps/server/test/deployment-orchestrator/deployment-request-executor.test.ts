@@ -118,11 +118,11 @@ const createDeploymentDocument = (action: "create" | "delete"): DeploymentDocume
             cloud_provider: "aws",
             clp_image_tag: "0.5.0-main-test",
             cluster_id: "yscope1",
-            compression_workers: 4,
             deployment_name: DEPLOYMENT_ID,
             helm_chart_version: "0.4.1-dev.11",
+            num_compression_workers: 4,
+            num_search_workers: 4,
             region: "ca-central-1",
-            search_workers: 4,
         },
         status: {
             phase: inProgressPhase,

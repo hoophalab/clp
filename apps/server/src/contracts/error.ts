@@ -2,6 +2,9 @@ import * as z from "zod";
 
 
 const ErrorCodeSchema = z.enum([
+    "NAME_TAKEN",
+    "UNKNOWN_CLUSTER_TARGET",
+    "VERSION_NOT_FOUND",
     "forbidden",
     "internal_server_error",
     "invalid_request",
@@ -21,6 +24,9 @@ type ErrorCode = z.infer<typeof ErrorCodeSchema>;
 type ErrorEnvelope = z.infer<typeof ErrorEnvelopeSchema>;
 
 const PublicErrorMessages = {
+    NAME_TAKEN: "The deployment name is already in use.",
+    UNKNOWN_CLUSTER_TARGET: "The target cluster is invalid.",
+    VERSION_NOT_FOUND: "The chart version doesn't exist.",
     forbidden: "Access to the requested resource is denied.",
     internal_server_error: "An unexpected error occurred.",
     invalid_request: "The request is invalid.",

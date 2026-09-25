@@ -27,7 +27,7 @@ const createValidDeploymentStatus = (phase: DeploymentPhase) => ({
             {
                 pending_update: {
                     requested_by: "requester-a",
-                    spec_patch: {compression_workers: 8},
+                    spec_patch: {num_compression_workers: 8},
                 },
             } :
             {}
