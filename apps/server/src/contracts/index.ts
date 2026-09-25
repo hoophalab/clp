@@ -6,6 +6,8 @@ export {
     CreateDeploymentRequestSchema,
     type DeploymentResponse,
     DeploymentResponseSchema,
+    type ListDeploymentsResponse,
+    ListDeploymentsResponseSchema,
 } from "./deployment.js";
 export {
     type ErrorCode,

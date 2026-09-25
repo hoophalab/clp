@@ -13,6 +13,8 @@ import {
     CreateDeploymentRequestSchema,
     DeploymentNameSchema,
     DeploymentResponseSchema,
+    ListDeploymentsQuerySchema,
+    ListDeploymentsResponseSchema,
 } from "../contracts/deployment.js";
 import {createErrorEnvelope} from "../contracts/error.js";
 import type {DeploymentOrchestrator} from "../deployment-orchestrator/index.js";
@@ -65,6 +67,34 @@ const createDeploymentRoutes = ({
     );
 
     return new Hono<ServerEnv>()
+        .get(
+            "/",
+            requestValidator("query", ListDeploymentsQuerySchema),
+            async (context) => {
+                const {limit, page} = context.req.valid("query");
+                const filter = context.get("isAdmin") ?
+                    {} :
+                    {"metadata.owner_id": context.get("userId")};
+                const [data, total] = await Promise.all([
+                    deployments.find(filter)
+                        .sort({"metadata.created_at": -1, "_id": -1})
+                        .skip((page - 1) * limit)
+                        .limit(limit)
+                        .toArray(),
+                    deployments.countDocuments(filter),
+                ]);
+
+                return context.json(
+                    parseContractResponse(ListDeploymentsResponseSchema, {
+                        data: data,
+                        limit: limit,
+                        page: page,
+                        total: total,
+                    }),
+                    HTTP_STATUS_OK,
+                );
+            },
+        )
         .get(
             "/check-name",
             requestValidator("query", CheckDeploymentNameQuerySchema),

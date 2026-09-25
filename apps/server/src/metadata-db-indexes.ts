@@ -20,6 +20,10 @@ const ensureIndexes = async (database: Db): Promise<void> => {
         {"metadata.owner_id": 1, "spec.deployment_name": 1},
         {name: "owner_deployment_name_unique", unique: true},
     );
+    await database.collection<DeploymentDocument>("deployments").createIndex(
+        {"metadata.owner_id": 1, "metadata.created_at": 1, "_id": 1},
+        {name: "owner_created_at"},
+    );
     await database.collection<RegionDocument>(REGIONS_COLLECTION).createIndex(
         {region: 1, cluster_id: 1},
         {name: "region_cluster_unique", unique: true},

@@ -8,6 +8,9 @@ import {
 
 const DEPLOYMENT_NAME_LENGTH_MIN = 5;
 const DEPLOYMENT_NAME_LENGTH_MAX = 32;
+const DEPLOYMENT_LIST_LIMIT_DEFAULT = 20;
+const DEPLOYMENT_LIST_LIMIT_MAX = 100;
+const DEPLOYMENT_LIST_PAGE_MAX = 1_000;
 
 const DeploymentNameSchema = z.string().min(DEPLOYMENT_NAME_LENGTH_MIN)
     .max(DEPLOYMENT_NAME_LENGTH_MAX)
@@ -88,6 +91,29 @@ const DeploymentResponseSchema = z.strictObject({
     }),
 });
 
+const ListDeploymentsQuerySchema = z.strictObject({
+    limit: z.coerce.number().int()
+        .min(1)
+        .max(DEPLOYMENT_LIST_LIMIT_MAX)
+        .default(DEPLOYMENT_LIST_LIMIT_DEFAULT),
+    page: z.coerce.number().int()
+        .min(1)
+        .max(DEPLOYMENT_LIST_PAGE_MAX)
+        .default(1),
+});
+
+const ListDeploymentsResponseSchema = z.strictObject({
+    data: z.array(DeploymentResponseSchema),
+    limit: z.number().int()
+        .min(1)
+        .max(DEPLOYMENT_LIST_LIMIT_MAX),
+    page: z.number().int()
+        .min(1)
+        .max(DEPLOYMENT_LIST_PAGE_MAX),
+    total: z.number().int()
+        .nonnegative(),
+});
+
 type CheckDeploymentNameResponse = z.infer<
     typeof CheckDeploymentNameResponseSchema
 >;
@@ -95,6 +121,8 @@ type CheckDeploymentNameResponse = z.infer<
 type CreateDeploymentRequest = z.infer<typeof CreateDeploymentRequestSchema>;
 
 type DeploymentResponse = z.infer<typeof DeploymentResponseSchema>;
+
+type ListDeploymentsResponse = z.infer<typeof ListDeploymentsResponseSchema>;
 
 export {
     CheckDeploymentNameQuerySchema,
@@ -105,4 +133,7 @@ export {
     DeploymentNameSchema,
     type DeploymentResponse,
     DeploymentResponseSchema,
+    ListDeploymentsQuerySchema,
+    type ListDeploymentsResponse,
+    ListDeploymentsResponseSchema,
 };
