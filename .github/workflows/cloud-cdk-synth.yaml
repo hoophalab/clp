@@ -31,6 +31,8 @@ jobs:
     env:
       CDK_DEFAULT_ACCOUNT: "123456789012"
       CDK_DEFAULT_REGION: "us-east-1"
+      # Use a per-job pnpm store, since the default store is shared by all jobs on a runner host.
+      pnpm_config_store_dir: "${{github.workspace}}/../.pnpm-store"
     steps:
       - uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd"  # v6.0.2
 

@@ -28,6 +28,9 @@ concurrency:
 jobs:
   tests:
     runs-on: "${{fromJSON(vars.GH_RUNNER_LINUX_LIGHT_X64)}}"
+    env:
+      # Use a per-job pnpm store, since the default store is shared by all jobs on a runner host.
+      pnpm_config_store_dir: "${{github.workspace}}/../.pnpm-store"
     steps:
       - uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd"  # v6.0.2
 

@@ -32,6 +32,9 @@ jobs:
       matrix:
         app: ["server", "web"]
     runs-on: "${{fromJSON(vars.GH_RUNNER_LINUX_LIGHT_X64)}}"
+    env:
+      # Use a per-job pnpm store, since the default store is shared by all jobs on a runner host.
+      pnpm_config_store_dir: "${{github.workspace}}/../.pnpm-store"
     steps:
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
 
