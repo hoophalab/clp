@@ -2,7 +2,9 @@ import * as z from "zod";
 
 
 const ErrorCodeSchema = z.enum([
+    "CONFLICT",
     "NAME_TAKEN",
+    "SERVICE_UNAVAILABLE",
     "UNKNOWN_CLUSTER_TARGET",
     "VERSION_NOT_FOUND",
     "forbidden",
@@ -24,7 +26,9 @@ type ErrorCode = z.infer<typeof ErrorCodeSchema>;
 type ErrorEnvelope = z.infer<typeof ErrorEnvelopeSchema>;
 
 const PublicErrorMessages = {
+    CONFLICT: "The request conflicts with the current state of the resource.",
     NAME_TAKEN: "The deployment name is already in use.",
+    SERVICE_UNAVAILABLE: "The deployment's region is temporarily unavailable.",
     UNKNOWN_CLUSTER_TARGET: "The target cluster is invalid.",
     VERSION_NOT_FOUND: "The chart version doesn't exist.",
     forbidden: "Access to the requested resource is denied.",

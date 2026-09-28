@@ -21,6 +21,7 @@ import {
     HTTP_STATUS_INTERNAL_SERVER_ERROR,
     HTTP_STATUS_UNAUTHORIZED,
 } from "./http-status.js";
+import {createApiTokenRoutes} from "./routes/api-tokens.js";
 import {createDeploymentRoutes} from "./routes/deployments.js";
 import {createHealthRoutes} from "./routes/health.js";
 import {createRegionRoutes} from "./routes/regions.js";
@@ -62,6 +63,10 @@ const createApp = ({
         .route("/api/v1/health", createHealthRoutes())
         .route("/api/v1/regions", createRegionRoutes(database))
         .use("/api/v1/*", createAuthenticationMiddleware(identityVerifier))
+        .route("/api/v1/api-tokens", createApiTokenRoutes({
+            clusterDatabaseManager: clusterDatabaseManager,
+            database: database,
+        }))
         .route("/api/v1/deployments", createDeploymentRoutes({
             clusterDatabaseManager: clusterDatabaseManager,
             database: database,

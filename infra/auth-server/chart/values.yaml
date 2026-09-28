@@ -7,7 +7,8 @@ accessCache:
   maxEntries: 10000
   # Bounds how long a revoked token or removed user keeps working on a replica
   # that cached the record before the change. The cloud console shows this as
-  # the revocation countdown, so keep the two in sync.
+  # the revocation countdown (`AUTH_SERVER_CACHE_TTL_SECONDS` in
+  # `apps/server/src/api-tokens/token.ts`), so keep the two in sync.
   ttlSeconds: 60
 
 baseDomain: "example.cloud.yscope.com"
