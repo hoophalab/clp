@@ -258,6 +258,13 @@ export class DeploymentStack extends ClusterScopedStack {
         const bucket = new s3.Bucket(this, "StorageBucket", {
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
             bucketName: `cloud-${props.clusterName}-${props.deploymentId}-data`,
+            cors: [
+                {
+                    allowedHeaders: ["*"],
+                    allowedMethods: [s3.HttpMethods.GET],
+                    allowedOrigins: ["*"],
+                },
+            ],
             encryption: s3.BucketEncryption.S3_MANAGED,
             enforceSSL: true,
             removalPolicy: cdk.RemovalPolicy.RETAIN,
