@@ -7,59 +7,154 @@ import {
 } from "@testing-library/react";
 import {
     afterEach,
+    beforeEach,
     describe,
     expect,
     it,
+    vi,
 } from "vitest";
 
+import {SAMPLE_DEPLOYMENTS as DEPLOYMENTS} from "~/lib/sample-deployments";
 import DeploymentsPage from "~/routes/deployments";
 
 
-const SAMPLE_DEPLOYMENT_COUNT = 4;
-const RUNNING_DEPLOYMENT_COUNT = 2;
+const auth = vi.hoisted(() => ({useAuth0: vi.fn()}));
 
-afterEach(cleanup);
+vi.mock("@auth0/auth0-react", () => auth);
+
+/**
+ * Answers the deployment list request with a fixed response.
+ *
+ * @param response The response the API returns.
+ * @return The stubbed fetch.
+ */
+const stubApi = (response: Response) => {
+    const fetch = vi.fn(() => Promise.resolve(response));
+
+    vi.stubGlobal("fetch", fetch);
+
+    return fetch;
+};
+
+beforeEach(() => {
+    auth.useAuth0.mockReturnValue({
+        getAccessTokenSilently: () => Promise.resolve("member-token"),
+    });
+});
+
+afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+});
 
 describe("DeploymentsPage", () => {
-    it("renders the sample deployment inventory", () => {
+    it("renders the deployments the API returns", async () => {
+        const fetch = stubApi(Response.json({
+            data: DEPLOYMENTS,
+            limit: 100,
+            page: 1,
+            total: DEPLOYMENTS.length,
+        }));
+
         render(<DeploymentsPage/>);
 
-        expect(screen.getByRole("heading", {name: "Deployments"})).toBeVisible();
-        expect(screen.getAllByRole("article")).toHaveLength(SAMPLE_DEPLOYMENT_COUNT);
-        expect(screen.getAllByText("yscope-admin-ca-central-1")[0]).toBeVisible();
-        expect(screen.getByText("test-deployment-2")).toBeVisible();
-        expect(screen.getByText("testagain")).toBeVisible();
-        expect(screen.getByText("test-prod-eu-west-1")).toBeVisible();
-        expect(screen.getAllByText("0.3.3-clap.41")).toHaveLength(SAMPLE_DEPLOYMENT_COUNT);
-        expect(screen.getAllByRole("button", {name: "Open"})).toHaveLength(
-            RUNNING_DEPLOYMENT_COUNT,
+        expect(await screen.findAllByRole("article")).toHaveLength(DEPLOYMENTS.length);
+        expect(fetch).toHaveBeenCalledWith(
+            expect.stringContaining("/api/v1/deployments?limit=100"),
+            expect.anything(),
+        );
+        expect(screen.getByText("Open").closest("a")).toHaveAttribute(
+            "href",
+            "https://logs-running.example.com",
         );
         expect(screen.getByRole("button", {name: "Wake Up"})).toBeVisible();
-        expect(screen.getByRole("button", {name: "Retry"})).toBeVisible();
+        expect(within(screen.getByRole("article", {name: "logs-failed"}))
+            .getByText("Failed to create")).toBeVisible();
 
-        const deploymentCard = screen.getByRole("article", {
-            name: "test-deployment-2",
-        });
-        const deploymentIdentity = within(deploymentCard).getByRole("group", {
-            name: "test-deployment-2 identity",
-        });
+        const creatingCard = screen.getByRole("article", {name: "logs-creating"});
 
-        expect(within(deploymentIdentity).getByText("test-deployment-2")).toBeVisible();
-        expect(within(deploymentIdentity).getByText("7c9a9fc1e7f9d4a7e96af46")).toBeVisible();
-        expect(within(deploymentIdentity).getByRole("button", {
-            name: "Copy test-deployment-2 ID",
-        })).toBeVisible();
+        expect(within(creatingCard).getByText("Creating")).toBeVisible();
+        expect(within(creatingCard).getByText("4 compression · 4 search workers")).toBeVisible();
+
+        const identity = within(screen.getByRole("article", {name: "logs-suspended"}))
+            .getByRole("group", {name: "logs-suspended identity"});
+
+        expect(within(identity).getByText("d4c2b8e7")).toBeVisible();
+        expect(within(identity).getByRole("button", {name: "Copy logs-suspended ID"}))
+            .toBeVisible();
     });
 
-    it("filters the deployment inventory by search text", () => {
-        render(<DeploymentsPage/>);
+    it("filters the deployments by search text", async () => {
+        stubApi(Response.json({
+            data: DEPLOYMENTS,
+            limit: 100,
+            page: 1,
+            total: DEPLOYMENTS.length,
+        }));
 
-        fireEvent.change(screen.getByRole("searchbox", {name: "Search deployments"}), {
-            target: {value: "eu-west"},
-        });
+        render(<DeploymentsPage/>);
+        fireEvent.change(
+            await screen.findByRole("searchbox", {name: "Search deployments"}),
+            {target: {value: "eu-west"}},
+        );
 
         expect(screen.getAllByRole("article")).toHaveLength(1);
-        expect(screen.getByText("test-prod-eu-west-1")).toBeVisible();
-        expect(screen.queryByText("test-deployment-2")).not.toBeInTheDocument();
+        expect(screen.getByText("logs-creating")).toBeVisible();
+        expect(screen.queryByText("logs-running")).not.toBeInTheDocument();
+    });
+
+    it("loads every page of deployments", async () => {
+        const finalDeployment = {
+            ...DEPLOYMENTS[0],
+            _id: "final-page",
+            spec: {
+                ...DEPLOYMENTS[0].spec,
+                deployment_name: "logs-final-page",
+            },
+        };
+        const fetch = vi.fn((input: RequestInfo | URL) => {
+            let url: string;
+
+            if ("string" === typeof input) {
+                url = input;
+            } else if (input instanceof URL) {
+                url = input.href;
+            } else {
+                ({url} = input);
+            }
+            const isSecondPage = url.includes("page=2");
+
+            return Promise.resolve(Response.json({
+                data: isSecondPage ?
+                    [finalDeployment] :
+                    DEPLOYMENTS,
+                limit: 100,
+                page: isSecondPage ?
+                    2 :
+                    1,
+                total: DEPLOYMENTS.length + 1,
+            }));
+        });
+
+        vi.stubGlobal("fetch", fetch);
+        render(<DeploymentsPage/>);
+
+        expect(await screen.findAllByRole("article")).toHaveLength(DEPLOYMENTS.length + 1);
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(fetch).toHaveBeenNthCalledWith(
+            2,
+            expect.stringContaining("page=2"),
+            expect.anything(),
+        );
+    });
+
+    it("reports a failed load", async () => {
+        stubApi(new Response(null, {status: 500}));
+
+        render(<DeploymentsPage/>);
+
+        expect(await screen.findByText("Deployments could not be loaded")).toBeVisible();
+        expect(screen.queryByRole("status")).not.toBeInTheDocument();
     });
 });

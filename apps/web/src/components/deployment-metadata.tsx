@@ -1,10 +1,10 @@
 import type {ReactNode} from "react";
 
+import type {DeploymentResponse} from "@cloud.yscope.com/server/contracts";
 import {
     CalendarDaysIcon,
     CloudIcon,
     CpuIcon,
-    DatabaseIcon,
     type LucideIcon,
     MapPinIcon,
     ServerIcon,
@@ -12,7 +12,6 @@ import {
 
 import {Badge} from "~/components/ui/badge";
 import {CardContent} from "~/components/ui/card";
-import type {Deployment} from "~/lib/deployments";
 
 
 const CREATED_AT_FORMATTER = new Intl.DateTimeFormat("en-US", {
@@ -61,54 +60,42 @@ const DeploymentDetail = ({
  * @param props.deployment
  * @return The card content description list.
  */
-const DeploymentMetadata = ({deployment}: {deployment: Deployment}) => {
+const DeploymentMetadata = ({deployment}: {deployment: DeploymentResponse}) => {
     return (
         <CardContent>
-            <dl className={"grid gap-4 sm:grid-cols-2 lg:grid-cols-6"}>
+            <dl className={"grid gap-4 sm:grid-cols-2 lg:grid-cols-5"}>
                 <DeploymentDetail
                     icon={CloudIcon}
                     label={"Provider"}
                 >
-                    {deployment.provider}
+                    {deployment.spec.cloud_provider.toUpperCase()}
                 </DeploymentDetail>
                 <DeploymentDetail
                     icon={MapPinIcon}
                     label={"Region"}
                 >
-                    {deployment.region}
+                    {deployment.spec.region}
                 </DeploymentDetail>
                 <DeploymentDetail
                     icon={ServerIcon}
                     label={"Version"}
                 >
                     <Badge variant={"secondary"}>
-                        {deployment.version}
+                        {deployment.spec.helm_chart_version}
                     </Badge>
                 </DeploymentDetail>
                 <DeploymentDetail
                     icon={CpuIcon}
                     label={"Compute"}
                 >
-                    {deployment.vCpu}
-                    {" "}
-                    vCPU ·
-                    {deployment.memoryGiB}
-                    {" "}
-                    GiB RAM
-                </DeploymentDetail>
-                <DeploymentDetail
-                    icon={DatabaseIcon}
-                    label={"Storage"}
-                >
-                    {deployment.storageGiB}
-                    {" "}
-                    GiB
+                    {`${deployment.spec.num_compression_workers} compression · `}
+                    {`${deployment.spec.num_search_workers} search workers`}
                 </DeploymentDetail>
                 <DeploymentDetail
                     icon={CalendarDaysIcon}
                     label={"Created"}
                 >
-                    {CREATED_AT_FORMATTER.format(new Date(deployment.createdAt))}
+                    {CREATED_AT_FORMATTER.format(new Date(deployment.metadata.created_at))}
                 </DeploymentDetail>
             </dl>
         </CardContent>

@@ -28,8 +28,16 @@ import DeploymentsPage, {handle as inventoryHandle} from "~/routes/deployments";
 
 const auth = vi.hoisted(() => ({useAuth0: vi.fn(), loginWithRedirect: vi.fn()}));
 vi.mock("@auth0/auth0-react", () => ({useAuth0: auth.useAuth0}));
-afterEach(cleanup);
+afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+});
 beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn((url: string) => Promise.resolve(Response.json(
+        url.includes("/regions") ?
+            [] :
+            {data: [], limit: 100, page: 1, total: 0},
+    ))));
     auth.loginWithRedirect.mockReset().mockResolvedValue(null);
     auth.useAuth0.mockReturnValue({
         isAuthenticated: true,
@@ -58,7 +66,7 @@ const renderConsole = (path = "/") => {
             children: [
                 {
                     index: true,
-                    element: <DeploymentsPage deployments={[]}/>,
+                    element: <DeploymentsPage/>,
                     handle: inventoryHandle,
                 },
                 {
@@ -77,6 +85,7 @@ describe("Deployment creation navigation", () => {
     it.each([0,
         1])("opens the page through entry point %s and navigates back", async (index) => {
         renderConsole();
+        await screen.findByText("No deployments yet");
         const entry = screen.getAllByRole("link", {name: "Create Deployment"})[index];
         expect(entry).toHaveAttribute("href", "/deployments/new");
         fireEvent.click(entry);
@@ -84,7 +93,7 @@ describe("Deployment creation navigation", () => {
         expect(screen.queryByText("Trial plan")).not.toBeInTheDocument();
         expect(screen.queryByRole("button", {name: "Refresh deployments"})).not.toBeInTheDocument();
         fireEvent.click(screen.getByRole("link", {name: "Back"}));
-        expect(screen.getByText("No deployments yet")).toBeVisible();
+        expect(await screen.findByText("No deployments yet")).toBeVisible();
         await waitFor(() => {
             expect(auth.loginWithRedirect).not.toHaveBeenCalled();
         });

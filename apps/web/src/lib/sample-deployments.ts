@@ -1,57 +1,56 @@
-import type {Deployment} from "~/lib/deployments";
+import type {DeploymentResponse} from "@cloud.yscope.com/server/contracts";
 
 
-// Temporary frontend fixtures until the deployment inventory API is connected.
+const CREATED_AT = "2026-09-22T12:00:00.000Z";
+
+/**
+ * Builds a deployment shaped like one returned by the list endpoint.
+ *
+ * @param id
+ * @param name
+ * @param region
+ * @param phase
+ * @return The deployment fixture.
+ */
+const createSampleDeployment = (
+    id: string,
+    name: string,
+    region: string,
+    phase: DeploymentResponse["status"]["phase"],
+): DeploymentResponse => ({
+    _id: id,
+    metadata: {
+        created_at: CREATED_AT,
+        email: "member@example.com",
+        org_id: null,
+        owner_id: "member-user",
+    },
+    spec: {
+        cloud_provider: "aws",
+        clp_image_tag: "0.5.0",
+        cluster_id: "default",
+        deployment_name: name,
+        helm_chart_version: "0.4.1",
+        num_compression_workers: 4,
+        num_search_workers: 4,
+        region: region,
+    },
+    status: {
+        phase: phase,
+        phase_transition_records: {[phase]: CREATED_AT},
+        ...("RUNNING" === phase ?
+            {public_url: `https://${name}.example.com`} :
+            {}),
+    },
+});
+
+// Frontend fixtures for component tests.
 const SAMPLE_DEPLOYMENTS = [
-    {
-        createdAt: "2025-05-15T10:24:00Z",
-        id: "yscope-admin-ca-central-1",
-        memoryGiB: 16,
-        name: "yscope-admin-ca-central-1",
-        provider: "AWS",
-        region: "ca-central-1",
-        status: "running",
-        storageGiB: 100,
-        vCpu: 4,
-        version: "0.3.3-clap.41",
-    },
-    {
-        createdAt: "2025-05-14T15:11:00Z",
-        id: "7c9a9fc1e7f9d4a7e96af46",
-        memoryGiB: 16,
-        name: "test-deployment-2",
-        provider: "AWS",
-        region: "ca-central-1",
-        status: "suspended",
-        storageGiB: 50,
-        vCpu: 4,
-        version: "0.3.3-clap.41",
-    },
-    {
-        createdAt: "2025-05-12T09:12:00Z",
-        id: "01213b052ee8b522227",
-        memoryGiB: 16,
-        name: "testagain",
-        provider: "AWS",
-        region: "ca-central-1",
-        status: "create-failed",
-        storageGiB: 50,
-        vCpu: 4,
-        version: "0.3.3-clap.41",
-    },
-    {
-        createdAt: "2025-05-12T11:03:00Z",
-        id: "d4c2b8e7f3d048c9d72e1a5",
-        memoryGiB: 16,
-        name: "test-prod-eu-west-1",
-        provider: "AWS",
-        region: "eu-west-1",
-        status: "running",
-        storageGiB: 100,
-        vCpu: 4,
-        version: "0.3.3-clap.41",
-    },
-] as const satisfies readonly Deployment[];
+    createSampleDeployment("7c9a9fc1", "logs-running", "ca-central-1", "RUNNING"),
+    createSampleDeployment("d4c2b8e7", "logs-suspended", "ca-central-1", "SUSPENDED"),
+    createSampleDeployment("01213b05", "logs-failed", "ca-central-1", "CREATE_FAILED"),
+    createSampleDeployment("a1b2c3d4", "logs-creating", "eu-west-1", "CREATE_REQUESTED"),
+];
 
 
 export {SAMPLE_DEPLOYMENTS};

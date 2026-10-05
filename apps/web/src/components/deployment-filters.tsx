@@ -13,9 +13,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from "~/components/ui/select";
-import type {
-    DeploymentSort,
-    DeploymentStatus,
+import {
+    type DeploymentSort,
+    type DeploymentStatusLabel,
+    STATUS_BADGES,
 } from "~/lib/deployments";
 
 
@@ -23,19 +24,12 @@ type DeploymentFiltersProps = {
     onQueryChange: (query: string) => void;
     onRegionChange: (region: string) => void;
     onSortChange: (sort: DeploymentSort) => void;
-    onStatusChange: (status: DeploymentStatus | "all") => void;
+    onStatusChange: (status: DeploymentStatusLabel | "all") => void;
     query: string;
     region: string;
     regions: readonly string[];
     sort: DeploymentSort;
-    status: DeploymentStatus | "all";
-};
-
-const STATUS_LABELS: Record<DeploymentStatus | "all", string> = {
-    "all": "All Status",
-    "create-failed": "Create failed",
-    "running": "Running",
-    "suspended": "Suspended",
+    status: DeploymentStatusLabel | "all";
 };
 
 const SORT_LABELS: Record<DeploymentSort, string> = {
@@ -98,15 +92,22 @@ const DeploymentFilters = ({
                     className={"h-11 w-full"}
                 >
                     <SelectValue>
-                        {STATUS_LABELS[status]}
+                        {"all" === status ?
+                            "All Statuses" :
+                            STATUS_BADGES[status].label}
                     </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                     <SelectGroup>
-                        <SelectItem value={"all"}>All Status</SelectItem>
-                        <SelectItem value={"running"}>Running</SelectItem>
-                        <SelectItem value={"suspended"}>Suspended</SelectItem>
-                        <SelectItem value={"create-failed"}>Create failed</SelectItem>
+                        <SelectItem value={"all"}>All Statuses</SelectItem>
+                        {Object.entries(STATUS_BADGES).map(([value, {label}]) => (
+                            <SelectItem
+                                key={value}
+                                value={value}
+                            >
+                                {label}
+                            </SelectItem>
+                        ))}
                     </SelectGroup>
                 </SelectContent>
             </Select>

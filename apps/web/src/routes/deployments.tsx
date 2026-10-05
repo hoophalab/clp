@@ -1,7 +1,12 @@
-import {useState} from "react";
+import {
+    type ReactNode,
+    useState,
+} from "react";
 import {Link} from "react-router";
 
+import type {DeploymentResponse} from "@cloud.yscope.com/server/contracts";
 import {
+    CircleAlertIcon,
     CpuIcon,
     Globe2Icon,
     PlusIcon,
@@ -13,6 +18,11 @@ import {DeploymentCard} from "~/components/deployment-card";
 import {DeploymentEmptyIllustration} from "~/components/deployment-empty-illustration";
 import {DeploymentFilters} from "~/components/deployment-filters";
 import {DeploymentToolbar} from "~/components/deployment-toolbar";
+import {
+    Alert,
+    AlertDescription,
+    AlertTitle,
+} from "~/components/ui/alert";
 import {
     Button,
     buttonVariants,
@@ -31,17 +41,17 @@ import {
     EmptyTitle,
 } from "~/components/ui/empty";
 import {Separator} from "~/components/ui/separator";
+import {useApiClient} from "~/hooks/use-api-client";
+import {useDeployments} from "~/hooks/use-deployments";
 import {
     type ConsoleRouteHandle,
     DEPLOYMENT_BREADCRUMBS,
 } from "~/lib/console-route";
 import {
-    type Deployment,
     type DeploymentSort,
-    type DeploymentStatus,
+    type DeploymentStatusLabel,
     filterDeployments,
 } from "~/lib/deployments";
-import {SAMPLE_DEPLOYMENTS} from "~/lib/sample-deployments";
 import {cn} from "~/lib/utils";
 
 
@@ -159,26 +169,20 @@ const DeploymentFirstUseState = () => {
     );
 };
 
-type DeploymentsPageProps = {
-    deployments?: readonly Deployment[];
-};
-
 /**
- * Renders the searchable deployment inventory or its first-use state.
+ * Renders searchable, filterable deployment cards.
  *
- * @param props Optional deployments supplied by a data route or a test.
- * @param props.deployments
- * @return The deployments inventory page.
+ * @param props Inventory properties.
+ * @param props.deployments The caller's deployments; never empty.
+ * @return Filter controls above the matching deployment cards.
  */
-const DeploymentsPage = ({
-    deployments = SAMPLE_DEPLOYMENTS,
-}: DeploymentsPageProps) => {
+const DeploymentInventory = ({deployments}: {deployments: readonly DeploymentResponse[]}) => {
     const [query, setQuery] = useState("");
     const [region, setRegion] = useState("all");
     const [sort, setSort] = useState<DeploymentSort>("newest");
-    const [status, setStatus] = useState<DeploymentStatus | "all">("all");
+    const [status, setStatus] = useState<DeploymentStatusLabel | "all">("all");
     const regions = Array.from(
-        new Set(deployments.map((deployment) => deployment.region)),
+        new Set(deployments.map((deployment) => deployment.spec.region)),
     ).sort();
     const visibleDeployments = filterDeployments(deployments, {
         query,
@@ -186,6 +190,65 @@ const DeploymentsPage = ({
         sort,
         status,
     });
+
+    return (
+        <div className={"flex flex-col gap-6"}>
+            <DeploymentFilters
+                query={query}
+                region={region}
+                regions={regions}
+                sort={sort}
+                status={status}
+                onQueryChange={setQuery}
+                onRegionChange={setRegion}
+                onSortChange={setSort}
+                onStatusChange={setStatus}/>
+            {0 === visibleDeployments.length ?
+                <Empty className={"min-h-64 border"}>
+                    <EmptyHeader>
+                        <EmptyMedia variant={"icon"}>
+                            <SearchXIcon/>
+                        </EmptyMedia>
+                        <EmptyTitle size={"lg"}>No deployments found</EmptyTitle>
+                        <EmptyDescription>
+                            Adjust the search or filters to see more deployments.
+                        </EmptyDescription>
+                    </EmptyHeader>
+                </Empty> :
+                <ul className={"flex flex-col gap-4"}>
+                    {visibleDeployments.map((deployment) => (
+                        <li key={deployment._id}>
+                            <DeploymentCard deployment={deployment}/>
+                        </li>
+                    ))}
+                </ul>}
+        </div>
+    );
+};
+
+/**
+ * Renders the caller's deployments, or the first-use state when there are none.
+ *
+ * @return The deployments inventory page.
+ */
+const DeploymentsPage = () => {
+    const {deployments, hasLoadFailed} = useDeployments(useApiClient());
+    let content: ReactNode = null;
+
+    if (null !== deployments) {
+        content = 0 === deployments.length ?
+            <DeploymentFirstUseState/> :
+            <DeploymentInventory deployments={deployments}/>;
+    } else if (!hasLoadFailed) {
+        content = (
+            <p
+                className={"text-muted-foreground"}
+                role={"status"}
+            >
+                Loading deployments...
+            </p>
+        );
+    }
 
     return (
         <main
@@ -200,39 +263,16 @@ const DeploymentsPage = ({
                     Manage and monitor your data fetching deployments.
                 </p>
             </div>
-            {0 === deployments.length ?
-                <DeploymentFirstUseState/> :
-                <div className={"flex flex-col gap-6"}>
-                    <DeploymentFilters
-                        query={query}
-                        region={region}
-                        regions={regions}
-                        sort={sort}
-                        status={status}
-                        onQueryChange={setQuery}
-                        onRegionChange={setRegion}
-                        onSortChange={setSort}
-                        onStatusChange={setStatus}/>
-                    {0 === visibleDeployments.length ?
-                        <Empty className={"min-h-64 border"}>
-                            <EmptyHeader>
-                                <EmptyMedia variant={"icon"}>
-                                    <SearchXIcon/>
-                                </EmptyMedia>
-                                <EmptyTitle size={"lg"}>No deployments found</EmptyTitle>
-                                <EmptyDescription>
-                                    Adjust the search or filters to see more deployments.
-                                </EmptyDescription>
-                            </EmptyHeader>
-                        </Empty> :
-                        <ul className={"flex flex-col gap-4"}>
-                            {visibleDeployments.map((deployment) => (
-                                <li key={deployment.id}>
-                                    <DeploymentCard deployment={deployment}/>
-                                </li>
-                            ))}
-                        </ul>}
-                </div>}
+            {hasLoadFailed ?
+                <Alert variant={"destructive"}>
+                    <CircleAlertIcon/>
+                    <AlertTitle>Deployments could not be loaded</AlertTitle>
+                    <AlertDescription>
+                        Refresh to try again.
+                    </AlertDescription>
+                </Alert> :
+                null}
+            {content}
         </main>
     );
 };

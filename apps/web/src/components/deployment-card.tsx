@@ -1,9 +1,9 @@
+import type {DeploymentResponse} from "@cloud.yscope.com/server/contracts";
 import {
     CopyIcon,
     ExternalLinkIcon,
     MoreHorizontalIcon,
     PlayIcon,
-    RefreshCwIcon,
     ServerIcon,
     Settings2Icon,
 } from "lucide-react";
@@ -25,24 +25,12 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import type {Deployment} from "~/lib/deployments";
+import {
+    getDeploymentStatusLabel,
+    STATUS_BADGES,
+} from "~/lib/deployments";
 import {cn} from "~/lib/utils";
 
-
-const STATUS_BADGES = {
-    "create-failed": {
-        label: "Create failed",
-        variant: "destructive",
-    },
-    "running": {
-        label: "Running",
-        variant: "success",
-    },
-    "suspended": {
-        label: "Suspended",
-        variant: "warning",
-    },
-} as const;
 
 /**
  * Copies text without allowing clipboard failures to escape an event handler.
@@ -70,12 +58,24 @@ const copyText = (value: string): void => {
  * @param props.deployment
  * @return The status-appropriate deployment action.
  */
-const DeploymentAction = ({deployment}: {deployment: Deployment}) => {
-    if ("running" === deployment.status) {
+const DeploymentAction = ({deployment}: {deployment: DeploymentResponse}) => {
+    const status = getDeploymentStatusLabel(deployment);
+
+    if ("running" === status) {
+        if ("undefined" === typeof deployment.status.public_url) {
+            return null;
+        }
+
         return (
             <Button
-                type={"button"}
+                nativeButton={false}
                 variant={"success"}
+                render={
+                    <a
+                        href={deployment.status.public_url}
+                        rel={"noreferrer"}
+                        target={"_blank"}/>
+                }
             >
                 <ExternalLinkIcon data-icon={"inline-start"}/>
                 Open
@@ -83,7 +83,7 @@ const DeploymentAction = ({deployment}: {deployment: Deployment}) => {
         );
     }
 
-    if ("suspended" === deployment.status) {
+    if ("suspended" === status) {
         return (
             <Button
                 type={"button"}
@@ -95,19 +95,11 @@ const DeploymentAction = ({deployment}: {deployment: Deployment}) => {
         );
     }
 
-    return (
-        <Button
-            type={"button"}
-            variant={"outline"}
-        >
-            <RefreshCwIcon data-icon={"inline-start"}/>
-            Retry
-        </Button>
-    );
+    return null;
 };
 
 type DeploymentCardHeaderProps = {
-    deployment: Deployment;
+    deployment: DeploymentResponse;
     titleId: string;
 };
 
@@ -123,7 +115,7 @@ const DeploymentCardHeader = ({
     deployment,
     titleId,
 }: DeploymentCardHeaderProps) => {
-    const badge = STATUS_BADGES[deployment.status];
+    const badge = STATUS_BADGES[getDeploymentStatusLabel(deployment)];
 
     return (
         <CardHeader
@@ -133,7 +125,7 @@ const DeploymentCardHeader = ({
             )}
         >
             <div
-                aria-label={`${deployment.name} identity`}
+                aria-label={`${deployment.spec.deployment_name} identity`}
                 className={"flex min-w-0 items-center gap-3"}
                 role={"group"}
             >
@@ -152,7 +144,7 @@ const DeploymentCardHeader = ({
                                 className={"truncate"}
                                 id={titleId}
                             >
-                                {deployment.name}
+                                {deployment.spec.deployment_name}
                             </span>
                             <Badge variant={badge.variant}>
                                 {badge.label}
@@ -162,15 +154,15 @@ const DeploymentCardHeader = ({
                     <CardDescription className={"flex min-w-0 items-center gap-2"}>
                         <span>ID</span>
                         <span className={"truncate"}>
-                            {deployment.id}
+                            {deployment._id}
                         </span>
                         <Button
-                            aria-label={`Copy ${deployment.name} ID`}
+                            aria-label={`Copy ${deployment.spec.deployment_name} ID`}
                             size={"icon-xs"}
                             type={"button"}
                             variant={"ghost"}
                             onClick={() => {
-                                copyText(deployment.id);
+                                copyText(deployment._id);
                             }}
                         >
                             <CopyIcon/>
@@ -190,7 +182,7 @@ const DeploymentCardHeader = ({
                     <DropdownMenuTrigger
                         render={
                             <Button
-                                aria-label={`More actions for ${deployment.name}`}
+                                aria-label={`More actions for ${deployment.spec.deployment_name}`}
                                 size={"icon"}
                                 type={"button"}
                                 variant={"outline"}/>
@@ -219,8 +211,8 @@ const DeploymentCardHeader = ({
  * @param props.deployment
  * @return A responsive deployment summary card.
  */
-const DeploymentCard = ({deployment}: {deployment: Deployment}) => {
-    const titleId = `deployment-${deployment.id}`;
+const DeploymentCard = ({deployment}: {deployment: DeploymentResponse}) => {
+    const titleId = `deployment-${deployment._id}`;
 
     return (
         <Card

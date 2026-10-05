@@ -1,3 +1,4 @@
+import type {DeploymentResponse} from "@cloud.yscope.com/server/contracts";
 import {
     cleanup,
     fireEvent,
@@ -16,6 +17,7 @@ import {SAMPLE_DEPLOYMENTS} from "~/lib/sample-deployments";
 
 
 const [deployment] = SAMPLE_DEPLOYMENTS;
+const name = deployment.spec.deployment_name;
 
 afterEach(() => {
     cleanup();
@@ -27,8 +29,28 @@ it("copies the deployment ID from the inline control", () => {
     vi.stubGlobal("navigator", {clipboard: {writeText}});
     render(<DeploymentCard deployment={deployment}/>);
 
-    fireEvent.click(screen.getByRole("button", {name: `Copy ${deployment.name} ID`}));
-    expect(writeText).toHaveBeenCalledExactlyOnceWith(deployment.id);
+    fireEvent.click(screen.getByRole("button", {name: `Copy ${name} ID`}));
+    expect(writeText).toHaveBeenCalledExactlyOnceWith(deployment._id);
+});
+
+it.each([
+    {label: "Failed to create", phase: "CREATE_FAILED"},
+    {label: "Failed to update", phase: "CONFIG_FAILED"},
+    {label: "Failed to suspend", phase: "SUSPEND_FAILED"},
+    {label: "Failed to resume", phase: "RESUME_FAILED"},
+    {label: "Failed to delete", phase: "DELETE_FAILED"},
+] as const)("renders $label for $phase", ({label, phase}) => {
+    const failedDeployment: DeploymentResponse = {
+        ...deployment,
+        status: {
+            phase: phase,
+            phase_transition_records: {[phase]: "2026-09-22T12:00:00.000Z"},
+        },
+    };
+
+    render(<DeploymentCard deployment={failedDeployment}/>);
+
+    expect(screen.getByText(label)).toBeVisible();
 });
 
 it.each(["missing",
@@ -49,7 +71,7 @@ it.each(["missing",
     window.addEventListener("error", onError);
     try {
         render(<DeploymentCard deployment={deployment}/>);
-        fireEvent.click(screen.getByRole("button", {name: `Copy ${deployment.name} ID`}));
+        fireEvent.click(screen.getByRole("button", {name: `Copy ${name} ID`}));
         await Promise.resolve();
         expect(onError).not.toHaveBeenCalled();
     } finally {

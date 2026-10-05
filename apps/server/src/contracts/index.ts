@@ -1,5 +1,18 @@
 export type {AppType} from "../app.js";
 export {
+    HTTP_STATUS_ACCEPTED,
+    HTTP_STATUS_BAD_REQUEST,
+    HTTP_STATUS_CONFLICT,
+    HTTP_STATUS_CREATED,
+    HTTP_STATUS_FORBIDDEN,
+    HTTP_STATUS_INTERNAL_SERVER_ERROR,
+    HTTP_STATUS_NO_CONTENT,
+    HTTP_STATUS_NOT_FOUND,
+    HTTP_STATUS_OK,
+    HTTP_STATUS_SERVICE_UNAVAILABLE,
+    HTTP_STATUS_UNAUTHORIZED,
+} from "../http-status.js";
+export {
     type ApiTokenResponse,
     ApiTokenResponseSchema,
     type ApiTokenStatus,
@@ -18,6 +31,7 @@ export {
     CheckDeploymentNameResponseSchema,
     type CreateDeploymentRequest,
     CreateDeploymentRequestSchema,
+    DeploymentNameSchema,
     type DeploymentResponse,
     DeploymentResponseSchema,
     type ListDeploymentsResponse,

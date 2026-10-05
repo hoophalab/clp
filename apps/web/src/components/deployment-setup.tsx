@@ -24,6 +24,7 @@ import {
 } from "~/components/ui/select";
 import {Separator} from "~/components/ui/separator";
 import type {Region} from "~/hooks/use-regions";
+import {STARTER_WORKER_COUNT} from "~/lib/deployments";
 import {cn} from "~/lib/utils";
 
 
@@ -167,12 +168,13 @@ const DeploymentConfiguration = ({
                             aria-hidden={true}
                             className={"size-5 text-muted-foreground"}/>
                         Starter
-                        <Badge variant={"secondary"}>Unavailable</Badge>
+                        <Badge variant={"secondary"}>clp-json</Badge>
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
                     <p className={"text-muted-foreground"}>
-                        Starter configuration is not available yet.
+                        {`${STARTER_WORKER_COUNT} compression workers and `}
+                        {`${STARTER_WORKER_COUNT} search workers.`}
                     </p>
                 </CardContent>
             </Card>
@@ -218,12 +220,12 @@ const DeploymentReview = ({
                     </div>
                     <div className={"flex flex-col gap-2"}>
                         <dt className={"font-medium"}>Configuration</dt>
-                        <dd className={"text-muted-foreground"}>Unavailable</dd>
+                        <dd className={"text-muted-foreground"}>Starter</dd>
                     </div>
                 </dl>
                 <Separator className={"xl:mt-auto"}/>
                 <p className={"text-sm text-muted-foreground"}>
-                    No deployment will be created.
+                    Provisioning takes a few minutes after you create the deployment.
                 </p>
             </CardContent>
         </Card>

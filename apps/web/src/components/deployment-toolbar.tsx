@@ -10,6 +10,7 @@ import {
     Button,
     buttonVariants,
 } from "~/components/ui/button";
+import {refreshDeployments} from "~/hooks/use-deployments";
 import type {DeploymentQuota} from "~/lib/deployment-quota";
 import {SAMPLE_DEPLOYMENT_QUOTA} from "~/lib/sample-deployment-quota";
 import {cn} from "~/lib/utils";
@@ -40,6 +41,7 @@ const DeploymentToolbar = ({quota = SAMPLE_DEPLOYMENT_QUOTA}: {quota?: Deploymen
             size={"icon-lg"}
             type={"button"}
             variant={"ghost"}
+            onClick={refreshDeployments}
         >
             <RefreshCwIcon/>
         </Button>

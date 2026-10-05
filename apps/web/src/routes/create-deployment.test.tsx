@@ -1,10 +1,15 @@
-import {MemoryRouter} from "react-router";
+import {
+    MemoryRouter,
+    Route,
+    Routes,
+} from "react-router";
 
 import {
     cleanup,
     fireEvent,
     render,
     screen,
+    waitFor,
     within,
 } from "@testing-library/react";
 import {
@@ -31,13 +36,21 @@ const auth = vi.hoisted(() => ({useAuth0: vi.fn()}));
 vi.mock("@auth0/auth0-react", () => auth);
 
 /**
- * Answers the region catalog with a fixed response.
+ * Answers the region catalog and deployment creation requests.
  *
  * @param regions The catalog the API reports.
+ * @param createResponse The response to a creation request.
  * @return The stubbed fetch.
  */
-const stubApi = (regions: unknown = REGIONS) => {
-    const fetch = vi.fn(() => Promise.resolve(Response.json(regions)));
+const stubApi = (
+    regions: unknown = REGIONS,
+    createResponse = new Response(null, {status: 202}),
+) => {
+    const fetch = vi.fn((url: string, init?: RequestInit) => Promise.resolve(
+        "POST" === init?.method ?
+            createResponse :
+            Response.json(regions),
+    ));
 
     auth.useAuth0.mockReturnValue({
         getAccessTokenSilently: () => Promise.resolve("test-token"),
@@ -45,6 +58,21 @@ const stubApi = (regions: unknown = REGIONS) => {
     vi.stubGlobal("fetch", fetch);
 
     return fetch;
+};
+
+/**
+ * Enters a name and submits the form once the regions have loaded.
+ *
+ * @param name The deployment name to submit.
+ */
+const submitName = async (name: string) => {
+    fireEvent.change(screen.getByRole("textbox", {name: "Deployment name"}), {
+        target: {value: name},
+    });
+    await waitFor(() => {
+        expect(screen.getByRole("button", {name: "Create deployment"})).toBeEnabled();
+    });
+    fireEvent.submit(screen.getByRole("form", {name: "Deployment details"}));
 };
 
 afterEach(() => {
@@ -100,29 +128,68 @@ describe("CreateDeploymentPage", () => {
         expect(screen.getByRole("combobox", {name: "Region"})).toBeDisabled();
     });
 
-    it("blocks creation without supported configuration and never creates anything", () => {
+    it("requests a starter deployment and returns to the inventory", async () => {
+        const fetch = stubApi();
+        render(
+            <MemoryRouter initialEntries={["/deployments/new"]}>
+                <Routes>
+                    <Route
+                        element={<CreateDeploymentPage/>}
+                        path={"/deployments/new"}/>
+                    <Route
+                        element={<p>Inventory</p>}
+                        path={"/"}/>
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await submitName("application-logs");
+
+        expect(await screen.findByText("Inventory")).toBeVisible();
+        expect(fetch).toHaveBeenCalledWith(
+            expect.stringContaining("/api/v1/deployments"),
+            expect.objectContaining({
+                body: JSON.stringify({
+                    cloud_provider: "aws",
+                    deployment_name: "application-logs",
+                    num_compression_workers: 4,
+                    num_search_workers: 4,
+                    region: "ca-central-1",
+                }),
+                method: "POST",
+            }),
+        );
+    });
+
+    it("rejects a malformed name without calling the API", async () => {
         const fetch = stubApi();
         render(
             <MemoryRouter>
                 <CreateDeploymentPage/>
             </MemoryRouter>
         );
-        const create = screen.getByRole("button", {name: "Create deployment"});
-        expect(create).toBeDisabled();
-        fireEvent.click(create);
-        fireEvent.click(create);
-        const form = screen.getByRole("form", {name: "Deployment details"});
-        const submitted = fireEvent.submit(form);
-        expect(submitted).toBe(false);
+
+        await submitName("Bad_Name");
+
+        expect(screen.getByRole("alert")).toHaveTextContent("Use 5-32 lowercase letters");
         expect(fetch).not.toHaveBeenCalledWith(
-            "/api/v1/deployments",
             expect.anything(),
+            expect.objectContaining({method: "POST"}),
         );
-        expect(screen.getByText("Deployment creation is not available yet.")).toBeVisible();
-        expect(screen.getByRole("link", {name: "Back"})).toHaveAttribute("href", "/");
-        const activeStep = screen.getByText("Create deployment", {selector: "li span:last-child"});
-        expect(activeStep.closest("li"))
-            .toHaveAttribute("aria-current", "step");
-        expect(screen.queryByRole("link", {name: "Add logs"})).not.toBeInTheDocument();
+    });
+
+    it("reports a name the server has already taken", async () => {
+        stubApi(REGIONS, new Response(null, {status: 409}));
+        render(
+            <MemoryRouter>
+                <CreateDeploymentPage/>
+            </MemoryRouter>
+        );
+
+        await submitName("application-logs");
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+            "This name is already in use.",
+        );
     });
 });
