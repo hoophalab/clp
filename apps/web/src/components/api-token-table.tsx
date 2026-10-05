@@ -1,3 +1,5 @@
+import type {ReactNode} from "react";
+
 import type {ApiTokenResponse} from "@cloud.yscope.com/server/contracts";
 import {
     ArrowDownIcon,
@@ -36,6 +38,8 @@ type ApiTokenTableProps = {
     now: Date;
     onSortChange: (sort: ApiTokenSort) => void;
 
+    /** Renders a row's actions. */
+    renderActions: (token: ApiTokenResponse) => ReactNode;
     sort: ApiTokenSort;
     tokens: readonly ApiTokenResponse[];
 };
@@ -132,11 +136,12 @@ const ExpiryCell = ({now, value}: {now: Date; value: string}) => (
  * @param props
  * @param props.now Decides each token's status and countdown.
  * @param props.onSortChange
+ * @param props.renderActions
  * @param props.sort
  * @param props.tokens The tokens in display order.
  * @return A bordered table with one row per token.
  */
-const ApiTokenTable = ({now, onSortChange, sort, tokens}: ApiTokenTableProps) => (
+const ApiTokenTable = ({now, onSortChange, renderActions, sort, tokens}: ApiTokenTableProps) => (
 
     // `contain-inline-size` stops the table's width from widening the page, so
     // a table wider than the screen scrolls inside this box instead.
@@ -156,6 +161,9 @@ const ApiTokenTable = ({now, onSortChange, sort, tokens}: ApiTokenTableProps) =>
                                 sortKey={sortKey}
                                 onSortChange={onSortChange}/>
                     ))}
+                    <TableHead className={"w-0"}>
+                        <span className={"sr-only"}>Actions</span>
+                    </TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
@@ -213,6 +221,9 @@ const ApiTokenTable = ({now, onSortChange, sort, tokens}: ApiTokenTableProps) =>
                                 Management client (#78) is available. */}
                             <TableCell className={"text-muted-foreground"}>
                                 {token.user_id}
+                            </TableCell>
+                            <TableCell>
+                                {renderActions(token)}
                             </TableCell>
                         </TableRow>
                     );

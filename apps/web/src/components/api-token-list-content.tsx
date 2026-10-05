@@ -105,6 +105,7 @@ const EmptyState = ({description, icon, title}: {
  * @param props.now Decides each token's status.
  * @param props.onClearFilter Clears the deployment filter.
  * @param props.onSortChange
+ * @param props.renderActions Renders a token's row actions.
  * @param props.sort
  * @param props.visibleTokens The tokens that match the filters, in order.
  * @return The table, an empty state, a loading message, or a failure alert.
@@ -114,6 +115,7 @@ const TokenListContent = ({
     now,
     onClearFilter,
     onSortChange,
+    renderActions,
     sort,
     visibleTokens,
 }: {
@@ -121,6 +123,7 @@ const TokenListContent = ({
     now: Date;
     onClearFilter: () => void;
     onSortChange: (sort: ApiTokenSort) => void;
+    renderActions: (token: ApiTokenResponse) => ReactNode;
     sort: ApiTokenSort;
     visibleTokens: readonly ApiTokenResponse[];
 }) => {
@@ -162,6 +165,7 @@ const TokenListContent = ({
     return (
         <ApiTokenTable
             now={now}
+            renderActions={renderActions}
             sort={sort}
             tokens={visibleTokens}
             onSortChange={onSortChange}/>

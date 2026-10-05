@@ -18,6 +18,7 @@ const TOKEN_PREFIX = "ysclp_";
  * WARNING: This must be kept in sync with:
  * - `accessCache.ttlSeconds` in `infra/auth-server/chart/values.yaml`
  * - `DEFAULT_ACCESS_CACHE_TTL_SECONDS` in `infra/auth-server/src/main.rs`
+ * - `REVOKE_WARNING` in `apps/web/src/components/api-token-row-actions.tsx`
  */
 const AUTH_SERVER_CACHE_TTL_SECONDS = 60;
 const MILLISECONDS_PER_SECOND = 1000;

@@ -2,7 +2,10 @@ import {useState} from "react";
 import {useSearchParams} from "react-router";
 
 import {useAuth0} from "@auth0/auth0-react";
-import type {ApiTokenStatus} from "@cloud.yscope.com/server/contracts";
+import type {
+    ApiTokenResponse,
+    ApiTokenStatus,
+} from "@cloud.yscope.com/server/contracts";
 import {
     CircleAlertIcon,
     PlusIcon,
@@ -11,6 +14,7 @@ import {
 
 import {ApiTokenFilters} from "~/components/api-token-filters";
 import {TokenListContent} from "~/components/api-token-list-content";
+import {ApiTokenRowActions} from "~/components/api-token-row-actions";
 import type {ApiTokenSort} from "~/components/api-token-table";
 import {CreateApiTokenDialog} from "~/components/create-api-token-dialog";
 import {
@@ -117,13 +121,29 @@ const ApiTokensPage = () => {
 
     // The list only holds the filtered deployment's tokens, so an alias can
     // only be checked up front on that deployment (or on any, unfiltered).
-    const isKnownAliasTaken = (targetDeploymentId: string, alias: string) => (
+    const isKnownAliasTaken = (
+        targetDeploymentId: string,
+        alias: string,
+        ignoredTokenId: string | null = null,
+    ) => (
         (null === deploymentId || deploymentId === targetDeploymentId) &&
         isAliasTaken(
             tokens.filter((token) => token.user_id === user?.sub),
             targetDeploymentId,
             alias,
+            ignoredTokenId,
         )
+    );
+    const ownedIds = new Set(ownedDeployments.deployments?.map(({_id}) => _id));
+    const renderActions = (token: ApiTokenResponse) => (
+        <ApiTokenRowActions
+            isAliasTaken={(alias) => isKnownAliasTaken(token.deployment_id, alias, token.id)}
+            isCreator={token.user_id === user?.sub}
+            isOwner={ownedIds.has(token.deployment_id)}
+            now={now}
+            token={token}
+            onDeleted={tokenList.removeToken}
+            onUpdated={tokenList.upsertToken}/>
     );
 
     return (
@@ -179,6 +199,7 @@ const ApiTokensPage = () => {
                 <TokenListContent
                     list={tokenList}
                     now={now}
+                    renderActions={renderActions}
                     sort={sort}
                     visibleTokens={visibleTokens}
                     onSortChange={setSort}

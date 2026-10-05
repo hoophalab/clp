@@ -33,6 +33,9 @@ type ApiTokenList = {
     /** Loads the list again. */
     reload: () => void;
 
+    /** Drops a token from the list without reloading. */
+    removeToken: (id: string) => void;
+
     /** The tokens, or null until the first load succeeds. */
     tokens: readonly ApiTokenResponse[] | null;
 
@@ -124,10 +127,14 @@ const useApiTokens = (api: ApiClient, deploymentId: string | null): ApiTokenList
                 ...others];
         });
     }, []);
+    const removeToken = useCallback((id: string) => {
+        setTokens((current) => current?.filter((token) => token.id !== id) ?? null);
+    }, []);
 
     return {
         loadFailure: loadFailure,
         reload: reload,
+        removeToken: removeToken,
         tokens: tokens,
         upsertToken: upsertToken,
     };
@@ -162,10 +169,79 @@ const createApiToken = async (
     return {outcome: "failed"};
 };
 
+/**
+ * Renames a token.
+ *
+ * @param api The API client.
+ * @param id
+ * @param alias
+ * @return The renamed token, or why it was not renamed.
+ */
+const renameApiToken = async (
+    api: ApiClient,
+    id: string,
+    alias: string,
+): Promise<{outcome: "renamed"; token: ApiTokenResponse} | {outcome: "alias_taken" | "failed"}> => {
+    const response = await api.api.v1["api-tokens"][":id"].$patch({
+        json: {alias: alias},
+        param: {id: id},
+    });
+
+    if (response.ok) {
+        return {outcome: "renamed", token: await response.json()};
+    }
+
+    return {
+        outcome: HTTP_STATUS_CONFLICT === response.status ?
+            "alias_taken" :
+            "failed",
+    };
+};
+
+/**
+ * Revokes a token.
+ *
+ * @param api The API client.
+ * @param id
+ * @return The revoked token, or null when the request failed.
+ */
+const revokeApiToken = async (api: ApiClient, id: string): Promise<ApiTokenResponse | null> => {
+    const response = await api.api.v1["api-tokens"][":id"].revoke.$post({param: {id: id}});
+
+    return response.ok ?
+        await response.json() :
+        null;
+};
+
+/**
+ * Deletes a token.
+ *
+ * @param api The API client.
+ * @param id
+ * @return Whether the token was deleted, or why it was not.
+ */
+const deleteApiToken = async (
+    api: ApiClient,
+    id: string,
+): Promise<"deleted" | "grace_period" | "failed"> => {
+    const response = await api.api.v1["api-tokens"][":id"].$delete({param: {id: id}});
+
+    if (response.ok) {
+        return "deleted";
+    }
+
+    return HTTP_STATUS_CONFLICT === response.status ?
+        "grace_period" :
+        "failed";
+};
+
 
 export {
     type ApiTokenList,
     type ApiTokenLoadFailure,
     createApiToken,
+    deleteApiToken,
+    renameApiToken,
+    revokeApiToken,
     useApiTokens,
 };

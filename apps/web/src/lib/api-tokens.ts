@@ -197,17 +197,20 @@ const resolveExpiry = (option: string, customDate: string): string | null => {
  * @param tokens
  * @param deploymentId
  * @param alias
+ * @param ignoredTokenId A token whose own alias does not count, when renaming.
  * @return Whether the alias is taken.
  */
 const isAliasTaken = (
     tokens: readonly ApiTokenResponse[],
     deploymentId: string,
     alias: string,
+    ignoredTokenId: string | null = null,
 ): boolean => {
     const normalizedAlias = alias.trim().toLocaleLowerCase();
 
     return tokens.some((token) => (
         token.deployment_id === deploymentId &&
+        token.id !== ignoredTokenId &&
         token.alias.toLocaleLowerCase() === normalizedAlias
     ));
 };
