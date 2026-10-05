@@ -29,6 +29,7 @@ import {
     CreateApiTokenResponseSchema,
     ListApiTokensQuerySchema,
     ListApiTokensResponseSchema,
+    TOKEN_CREATION_BLOCKED_PHASES,
     TokenIdParamSchema,
     UpdateApiTokenRequestSchema,
 } from "../contracts/api-token.js";
@@ -143,6 +144,12 @@ const createApiTokenRoutes = ({
                 if (null === deployment) {
                     return context.json(createErrorEnvelope("not_found"), HTTP_STATUS_NOT_FOUND);
                 }
+                if (TOKEN_CREATION_BLOCKED_PHASES.has(deployment.status.phase)) {
+                    return context.json(
+                        createErrorEnvelope("DEPLOYMENT_UNAVAILABLE"),
+                        HTTP_STATUS_CONFLICT,
+                    );
+                }
 
                 const pool = await connectToCluster(
                     clusterDatabaseManager,
@@ -160,26 +167,17 @@ const createApiTokenRoutes = ({
                 }
 
                 const token = generateToken();
-                try {
-                    await insertToken(pool, {
-                        alias: request.alias,
-                        deploymentId: deployment._id,
-                        expiresAt: new Date(request.expires_at),
-                        secretHash: token.secretHash,
-                        selector: token.selector,
-                        userId: subjectOf(context.get("userId")),
-                    });
-                } catch (error: unknown) {
-                    if (isDuplicateAlias(error)) {
-                        return context.json(createErrorEnvelope("CONFLICT"), HTTP_STATUS_CONFLICT);
-                    }
-                    throw error;
-                }
+                const row = await insertToken(pool, {
+                    alias: request.alias,
+                    deploymentId: deployment._id,
+                    expiresAt: new Date(request.expires_at),
+                    secretHash: token.secretHash,
+                    selector: token.selector,
+                    userId: subjectOf(context.get("userId")),
+                });
 
-                // Read back so the response carries the database's created_at.
-                const row = await selectBySelector(pool, token.selector);
                 if (null === row) {
-                    throw new Error("The token was inserted but could not be read back.");
+                    return context.json(createErrorEnvelope("CONFLICT"), HTTP_STATUS_CONFLICT);
                 }
 
                 // The plaintext exists only in this response; nothing on the

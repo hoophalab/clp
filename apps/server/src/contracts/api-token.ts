@@ -1,7 +1,23 @@
 import * as z from "zod";
 
+import type {DeploymentPhase} from "../metadata-db-schemas/deployment.js";
+
 
 const ALIAS_LENGTH_MAX = 100;
+
+/**
+ * Deployment phases in which a token cannot be created: the deployment either
+ * has no gateway yet or is on its way out, so a token would never work.
+ */
+const TOKEN_CREATION_BLOCKED_PHASES: ReadonlySet<DeploymentPhase> = new Set<DeploymentPhase>([
+    "CREATE_FAILED",
+    "CREATE_REQUESTED",
+    "CREATING",
+    "DELETE_FAILED",
+    "DELETE_REQUESTED",
+    "DELETED",
+    "DELETING",
+]);
 
 // The selector: 16 random bytes, base64url without padding.
 const TOKEN_ID_LENGTH = 22;
@@ -101,6 +117,7 @@ export {
     ListApiTokensQuerySchema,
     type ListApiTokensResponse,
     ListApiTokensResponseSchema,
+    TOKEN_CREATION_BLOCKED_PHASES,
     TokenIdParamSchema,
     type UpdateApiTokenRequest,
     UpdateApiTokenRequestSchema,

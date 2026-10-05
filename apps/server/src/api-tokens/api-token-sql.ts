@@ -135,7 +135,8 @@ const selectVisible = async (
 };
 
 /**
- * Inserts a token.
+ * Inserts a token and reads it back so the caller gets the database's
+ * `created_at`.
  *
  * @param pool
  * @param row
@@ -145,7 +146,7 @@ const selectVisible = async (
  * @param row.secretHash
  * @param row.selector
  * @param row.userId The full Auth0 subject.
- * @throws The MySQL error; see {@link isDuplicateAlias}.
+ * @return The inserted row, or null when the alias is already taken.
  */
 const insertToken = async (
     pool: Pool,
@@ -157,20 +158,34 @@ const insertToken = async (
         selector: Buffer;
         userId: string;
     },
-): Promise<void> => {
-    await pool.execute(
-        "INSERT INTO auth.api_tokens " +
-        "(id, deployment_id, secret_hash, expires_at, user_id, alias, created_at) " +
-        "VALUES (?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(6))",
-        [
-            selector,
-            deploymentId,
-            secretHash,
-            expiresAt,
-            userId,
-            alias,
-        ],
-    );
+): Promise<ApiTokenRow | null> => {
+    try {
+        await pool.execute(
+            "INSERT INTO auth.api_tokens " +
+            "(id, deployment_id, secret_hash, expires_at, user_id, alias, created_at) " +
+            "VALUES (?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(6))",
+            [
+                selector,
+                deploymentId,
+                secretHash,
+                expiresAt,
+                userId,
+                alias,
+            ],
+        );
+    } catch (error: unknown) {
+        if (isDuplicateAlias(error)) {
+            return null;
+        }
+        throw error;
+    }
+
+    const row = await selectBySelector(pool, selector);
+    if (null === row) {
+        throw new Error("The token was inserted but could not be read back.");
+    }
+
+    return row;
 };
 
 /**
