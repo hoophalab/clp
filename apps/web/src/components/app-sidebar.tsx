@@ -39,14 +39,13 @@ const data = {
             items: [
                 {
                     icon: ServerIcon,
-                    isActive: true,
                     title: "Deployments",
                     url: "/",
                 },
                 {
                     icon: KeyRoundIcon,
-                    title: "API keys",
-                    url: "#",
+                    title: "API tokens",
+                    url: "/tokens",
                 },
                 {
                     icon: ChartNoAxesColumnIncreasingIcon,

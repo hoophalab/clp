@@ -17,7 +17,15 @@ const DEPLOYMENT_BREADCRUMBS = [
     {label: "Deployments", to: "/"},
 ] as const satisfies ConsoleRouteHandle["breadcrumbs"];
 
+const API_TOKEN_BREADCRUMBS = [
+    {label: "Operations"},
+    {label: "API tokens", to: "/tokens"},
+] as const satisfies ConsoleRouteHandle["breadcrumbs"];
+
 
 export {
-    type ConsoleBreadcrumb, type ConsoleRouteHandle, DEPLOYMENT_BREADCRUMBS,
+    API_TOKEN_BREADCRUMBS,
+    type ConsoleBreadcrumb,
+    type ConsoleRouteHandle,
+    DEPLOYMENT_BREADCRUMBS,
 };

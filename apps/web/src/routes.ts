@@ -11,6 +11,7 @@ export default [
         layout("routes/console-layout.tsx", [
             index("routes/deployments.tsx"),
             route("deployments/new", "routes/create-deployment.tsx"),
+            route("tokens", "routes/tokens.tsx"),
         ]),
     ]),
 ] satisfies RouteConfig;

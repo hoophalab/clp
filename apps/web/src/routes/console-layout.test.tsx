@@ -111,8 +111,8 @@ describe("ConsoleLayout", () => {
         renderConsoleLayout();
 
         expect(screen.getAllByRole("link", {name: "Deployments"})[0]).toHaveAttribute(
-            "aria-current",
-            "page",
+            "href",
+            "/",
         );
         expect(screen.getByRole("link", {name: "Create Deployment"})).toBeVisible();
         expect(screen.getByRole("button", {name: "Refresh deployments"})).toBeVisible();

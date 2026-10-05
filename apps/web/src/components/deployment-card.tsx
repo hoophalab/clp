@@ -1,7 +1,10 @@
+import {Link} from "react-router";
+
 import type {DeploymentResponse} from "@cloud.yscope.com/server/contracts";
 import {
     CopyIcon,
     ExternalLinkIcon,
+    KeyRoundIcon,
     MoreHorizontalIcon,
     PlayIcon,
     ServerIcon,
@@ -195,6 +198,12 @@ const DeploymentCardHeader = ({
                             <DropdownMenuItem>
                                 <Settings2Icon/>
                                 View details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                render={<Link to={`/tokens?deployment=${deployment._id}`}/>}
+                            >
+                                <KeyRoundIcon/>
+                                Manage tokens
                             </DropdownMenuItem>
                         </DropdownMenuGroup>
                     </DropdownMenuContent>
