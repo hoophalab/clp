@@ -5,12 +5,14 @@ import {useAuth0} from "@auth0/auth0-react";
 import type {ApiTokenStatus} from "@cloud.yscope.com/server/contracts";
 import {
     CircleAlertIcon,
+    PlusIcon,
     RefreshCwIcon,
 } from "lucide-react";
 
 import {ApiTokenFilters} from "~/components/api-token-filters";
 import {TokenListContent} from "~/components/api-token-list-content";
 import type {ApiTokenSort} from "~/components/api-token-table";
+import {CreateApiTokenDialog} from "~/components/create-api-token-dialog";
 import {
     Alert,
     AlertDescription,
@@ -24,6 +26,7 @@ import {useOwnedDeployments} from "~/hooks/use-owned-deployments";
 import {
     filterApiTokens,
     getApiTokenStatus,
+    isAliasTaken,
 } from "~/lib/api-tokens";
 import {
     API_TOKEN_BREADCRUMBS,
@@ -43,10 +46,14 @@ const DEFAULT_SORT: ApiTokenSort = {direction: "desc", key: "created_at"};
  * Renders the page title and its actions.
  *
  * @param props
+ * @param props.onCreate Opens the create-token dialog.
  * @param props.onRefresh Loads the tokens again.
  * @return The heading row.
  */
-const ApiTokensHeader = ({onRefresh}: {onRefresh: () => void}) => (
+const ApiTokensHeader = ({onCreate, onRefresh}: {
+    onCreate: () => void;
+    onRefresh: () => void;
+}) => (
     <div className={"flex items-start justify-between gap-4"}>
         <div className={"flex flex-col gap-1"}>
             <h1 className={"text-3xl font-semibold tracking-tight"}>API tokens</h1>
@@ -55,6 +62,15 @@ const ApiTokensHeader = ({onRefresh}: {onRefresh: () => void}) => (
             </p>
         </div>
         <div className={"flex shrink-0 items-center gap-2"}>
+            <Button
+                size={"lg"}
+                type={"button"}
+                variant={"brand"}
+                onClick={onCreate}
+            >
+                <PlusIcon data-icon={"inline-start"}/>
+                Create token
+            </Button>
             <Button
                 aria-label={"Refresh API tokens"}
                 size={"icon-lg"}
@@ -83,6 +99,7 @@ const ApiTokensPage = () => {
     const [query, setQuery] = useState("");
     const [status, setStatus] = useState<ApiTokenStatus | "all">("all");
     const [sort, setSort] = useState(DEFAULT_SORT);
+    const [isCreating, setIsCreating] = useState(false);
     const tokens = tokenList.tokens ?? [];
     const now = useNow(
         tokens.some((token) => "revoking" === getApiTokenStatus(token, new Date())),
@@ -98,6 +115,17 @@ const ApiTokensPage = () => {
             {[DEPLOYMENT_PARAM]: id});
     };
 
+    // The list only holds the filtered deployment's tokens, so an alias can
+    // only be checked up front on that deployment (or on any, unfiltered).
+    const isKnownAliasTaken = (targetDeploymentId: string, alias: string) => (
+        (null === deploymentId || deploymentId === targetDeploymentId) &&
+        isAliasTaken(
+            tokens.filter((token) => token.user_id === user?.sub),
+            targetDeploymentId,
+            alias,
+        )
+    );
+
     return (
         <main
             className={cn(
@@ -105,7 +133,24 @@ const ApiTokensPage = () => {
                 "lg:pb-8 lg:pl-11 lg:pr-9",
             )}
         >
-            <ApiTokensHeader onRefresh={tokenList.reload}/>
+            <ApiTokensHeader
+                onRefresh={tokenList.reload}
+                onCreate={() => {
+                    // Re-read the deployments so the picker shows current
+                    // phases.
+                    ownedDeployments.reload();
+                    setIsCreating(true);
+                }}/>
+            {isCreating ?
+                <CreateApiTokenDialog
+                    deployments={ownedDeployments.deployments}
+                    isAliasTaken={isKnownAliasTaken}
+                    preselectedDeploymentId={deploymentId}
+                    onCreated={tokenList.upsertToken}
+                    onClose={() => {
+                        setIsCreating(false);
+                    }}/> :
+                null}
             {ownedDeployments.hasLoadFailed ?
                 <Alert variant={"destructive"}>
                     <CircleAlertIcon/>

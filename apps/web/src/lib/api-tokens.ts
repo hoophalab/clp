@@ -28,6 +28,18 @@ const DAYS_PER_YEAR = 365;
 const MONTHS_PER_YEAR = 12;
 const MILLISECS_PER_MONTH = DAYS_PER_MONTH * MILLISECS_PER_DAY;
 const MILLISECS_PER_YEAR = DAYS_PER_YEAR * MILLISECS_PER_DAY;
+const ONE_WEEK_DAYS = 7;
+const TWO_MONTHS_DAYS = 60;
+const THREE_MONTHS_DAYS = 90;
+const DEFAULT_EXPIRY_DAYS = DAYS_PER_MONTH;
+const EXPIRY_PRESET_DAYS = [
+    ONE_WEEK_DAYS,
+    DAYS_PER_MONTH,
+    TWO_MONTHS_DAYS,
+    THREE_MONTHS_DAYS,
+] as const;
+const CUSTOM_EXPIRY = "custom";
+const NO_EXPIRY = "never";
 
 // The auth server stores an actual date, so "no expiration" is a date far
 // enough away that no one will be around to see it pass.
@@ -155,6 +167,52 @@ const formatCountdown = (token: ApiTokenResponse, now: Date): string => {
 };
 
 /**
+ * Turns the expiry the user picked into the timestamp sent to the API.
+ *
+ * @param option A number of days, `CUSTOM_EXPIRY`, or `NO_EXPIRY`.
+ * @param customDate The date field's value, used with `CUSTOM_EXPIRY`.
+ * @return An ISO 8601 timestamp: now plus the preset, the end of the chosen day
+ * in the user's timezone, or the "no expiration" sentinel. Null while a custom
+ * date has not been entered.
+ */
+const resolveExpiry = (option: string, customDate: string): string | null => {
+    if (NO_EXPIRY === option) {
+        return NEVER_EXPIRES_AT;
+    }
+    if (CUSTOM_EXPIRY === option) {
+        // A date-time without an offset is parsed in the local timezone.
+        return "" === customDate ?
+            null :
+            new Date(`${customDate}T23:59:59.999`).toISOString();
+    }
+
+    return new Date(Date.now() + (Number(option) * MILLISECS_PER_DAY)).toISOString();
+};
+
+/**
+ * Whether an alias is already used by one of the caller's tokens on the same
+ * deployment. The database compares aliases case-insensitively, and a
+ * revoked or expired token keeps its alias until it is deleted.
+ *
+ * @param tokens
+ * @param deploymentId
+ * @param alias
+ * @return Whether the alias is taken.
+ */
+const isAliasTaken = (
+    tokens: readonly ApiTokenResponse[],
+    deploymentId: string,
+    alias: string,
+): boolean => {
+    const normalizedAlias = alias.trim().toLocaleLowerCase();
+
+    return tokens.some((token) => (
+        token.deployment_id === deploymentId &&
+        token.alias.toLocaleLowerCase() === normalizedAlias
+    ));
+};
+
+/**
  * Filters and orders tokens for the table.
  *
  * @param tokens
@@ -211,12 +269,18 @@ const filterApiTokens = (
 
 export {
     type ApiTokenSortKey,
+    CUSTOM_EXPIRY,
+    DEFAULT_EXPIRY_DAYS,
+    EXPIRY_PRESET_DAYS,
     filterApiTokens,
     formatCountdown,
     formatDateTime,
     formatRelativeTime,
     getApiTokenStatus,
+    isAliasTaken,
     maskApiToken,
     neverExpires,
+    NO_EXPIRY,
+    resolveExpiry,
     TOKEN_STATUS_BADGES,
 };

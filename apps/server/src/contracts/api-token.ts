@@ -106,6 +106,7 @@ type ListApiTokensResponse = z.infer<typeof ListApiTokensResponseSchema>;
 type UpdateApiTokenRequest = z.infer<typeof UpdateApiTokenRequestSchema>;
 
 export {
+    ALIAS_LENGTH_MAX,
     type ApiTokenResponse,
     ApiTokenResponseSchema,
     type ApiTokenStatus,

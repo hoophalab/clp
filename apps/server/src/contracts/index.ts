@@ -13,6 +13,7 @@ export {
     HTTP_STATUS_UNAUTHORIZED,
 } from "../http-status.js";
 export {
+    ALIAS_LENGTH_MAX,
     type ApiTokenResponse,
     ApiTokenResponseSchema,
     type ApiTokenStatus,

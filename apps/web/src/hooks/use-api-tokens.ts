@@ -4,13 +4,18 @@ import {
     useState,
 } from "react";
 
-import type {ApiTokenResponse} from "@cloud.yscope.com/server/contracts";
+import type {
+    ApiTokenResponse,
+    CreateApiTokenRequest,
+    CreateApiTokenResponse,
+} from "@cloud.yscope.com/server/contracts";
 
 import type {ApiClient} from "~/lib/api-client";
 
 
 const HTTP_STATUS_FORBIDDEN = 403;
 const HTTP_STATUS_NOT_FOUND = 404;
+const HTTP_STATUS_CONFLICT = 409;
 
 type ApiTokenLoadFailure =
 
@@ -30,7 +35,14 @@ type ApiTokenList = {
 
     /** The tokens, or null until the first load succeeds. */
     tokens: readonly ApiTokenResponse[] | null;
+
+    /** Adds or replaces a token in the list without reloading. */
+    upsertToken: (token: ApiTokenResponse) => void;
 };
+
+type CreateApiTokenOutcome =
+    {outcome: "created"; token: CreateApiTokenResponse} |
+    {outcome: "alias_taken" | "deployment_unavailable" | "failed"};
 
 /**
  * Fetches the caller's tokens, on one deployment or on all of them.
@@ -66,7 +78,7 @@ const loadApiTokens = async (
  *
  * @param api The API client.
  * @param deploymentId The deployment to list, or null for every deployment.
- * @return The token list and a way to load it again.
+ * @return The token list and ways to keep it current after an action.
  */
 const useApiTokens = (api: ApiClient, deploymentId: string | null): ApiTokenList => {
     const [tokens, setTokens] = useState<readonly ApiTokenResponse[] | null>(null);
@@ -104,17 +116,56 @@ const useApiTokens = (api: ApiClient, deploymentId: string | null): ApiTokenList
     const reload = useCallback(() => {
         setLoadCount((count) => count + 1);
     }, []);
+    const upsertToken = useCallback((token: ApiTokenResponse) => {
+        setTokens((current) => {
+            const others = (current ?? []).filter(({id}) => id !== token.id);
+
+            return [token,
+                ...others];
+        });
+    }, []);
 
     return {
         loadFailure: loadFailure,
         reload: reload,
         tokens: tokens,
+        upsertToken: upsertToken,
     };
+};
+
+/**
+ * Creates a token.
+ *
+ * @param api The API client.
+ * @param request
+ * @return The created token, or why it was not created.
+ */
+const createApiToken = async (
+    api: ApiClient,
+    request: CreateApiTokenRequest,
+): Promise<CreateApiTokenOutcome> => {
+    const response = await api.api.v1["api-tokens"].$post({json: request});
+
+    if (response.ok) {
+        return {outcome: "created", token: await response.json()};
+    }
+    if (HTTP_STATUS_CONFLICT === response.status) {
+        const {error} = await response.json();
+
+        return {
+            outcome: "DEPLOYMENT_UNAVAILABLE" === error.code ?
+                "deployment_unavailable" :
+                "alias_taken",
+        };
+    }
+
+    return {outcome: "failed"};
 };
 
 
 export {
     type ApiTokenList,
     type ApiTokenLoadFailure,
+    createApiToken,
     useApiTokens,
 };
