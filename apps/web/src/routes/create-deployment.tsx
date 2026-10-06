@@ -4,10 +4,7 @@ import {
     useNavigate,
 } from "react-router";
 
-import {
-    DeploymentNameSchema,
-    HTTP_STATUS_CONFLICT,
-} from "@cloud.yscope.com/server/contracts";
+import {HTTP_STATUS_CONFLICT} from "@cloud.yscope.com/server/contracts";
 
 import {
     DeploymentConfiguration,
@@ -29,6 +26,7 @@ import {Input} from "~/components/ui/input";
 import {Separator} from "~/components/ui/separator";
 import {toast} from "~/components/ui/toast";
 import {useApiClient} from "~/hooks/use-api-client";
+import {useDeploymentName} from "~/hooks/use-deployment-name";
 import {
     type Region,
     useRegionSelection,
@@ -52,28 +50,6 @@ enum CreateDeploymentOutcome {
     Failed = "failed",
     NameTaken = "name_taken",
 }
-
-/**
- * Validates a trimmed deployment name.
- *
- * @param name The trimmed deployment name.
- * @param takenName A name the server has already rejected as taken.
- * @return The validation message, or null when the name is acceptable.
- */
-const getNameError = (name: string, takenName: string | null) => {
-    if ("" === name) {
-        return "Enter a deployment name.";
-    }
-    if (!DeploymentNameSchema.safeParse(name).success) {
-        return "Use 5-32 lowercase letters, digits, or hyphens, starting and ending" +
-            " with a letter or digit.";
-    }
-    if (name === takenName) {
-        return "This name is already in use. Choose another name.";
-    }
-
-    return null;
-};
 
 /**
  * Requests a starter deployment.
@@ -118,6 +94,7 @@ const reportCreateFailure = () => {
 
 type DeploymentNameFieldProps = {
     error: string | null;
+    help: string;
     onBlur: () => void;
     onChange: (name: string) => void;
     value: string;
@@ -128,12 +105,19 @@ type DeploymentNameFieldProps = {
  *
  * @param props Field properties.
  * @param props.error The message to show, or null while the name is valid or untouched.
+ * @param props.help Guidance or availability, shown when there is no error.
  * @param props.onBlur Marks the field as touched.
  * @param props.onChange Receives the edited name.
  * @param props.value The current name.
- * @return A labeled input with help text and any validation error.
+ * @return A labeled input with either its validation error or its help text.
  */
-const DeploymentNameField = ({error, onBlur, onChange, value}: DeploymentNameFieldProps) => (
+const DeploymentNameField = ({
+    error,
+    help,
+    onBlur,
+    onChange,
+    value,
+}: DeploymentNameFieldProps) => (
     <Field data-invalid={null !== error}>
         <FieldLabel htmlFor={"deployment-name"}>Deployment name</FieldLabel>
         <Input
@@ -146,17 +130,19 @@ const DeploymentNameField = ({error, onBlur, onChange, value}: DeploymentNameFie
             required={true}
             value={value}
             aria-describedby={null === error ?
-                "name-help" :
-                "name-help name-error"}
+                "name-description name-help" :
+                "name-description name-error"}
             onBlur={onBlur}
             onChange={(event) => {
                 onChange(event.target.value);
             }}/>
-        <FieldDescription id={"name-help"}>
+        <FieldDescription id={"name-description"}>
             A descriptive name for the deployment.
         </FieldDescription>
         {null === error ?
-            null :
+            <FieldDescription id={"name-help"}>
+                {help}
+            </FieldDescription> :
             <FieldError id={"name-error"}>
                 {error}
             </FieldError>}
@@ -177,32 +163,27 @@ const CreateDeploymentPage = () => {
         selectedRegion,
         setRegionId,
     } = useRegionSelection(api);
-    const [name, setName] = useState("");
-    const [nameTouched, setNameTouched] = useState(false);
-    const [takenName, setTakenName] = useState<string | null>(null);
+    const name = useDeploymentName(api);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const trimmedName = name.trim();
-    const nameError = getNameError(trimmedName, takenName);
-    const nameInvalid = nameTouched && null !== nameError;
 
     const submit = () => {
-        setNameTouched(true);
-        if (null !== nameError || null === selectedRegion || isSubmitting) {
+        name.touch();
+        if (!name.isValid || null === selectedRegion || isSubmitting) {
             return;
         }
 
         setIsSubmitting(true);
-        createDeployment(api, trimmedName, selectedRegion)
+        createDeployment(api, name.trimmed, selectedRegion)
             .then(async (outcome) => {
                 if (CreateDeploymentOutcome.Created === outcome) {
                     toast.add({
-                        description: `${trimmedName} is being created. This takes a few minutes.`,
+                        description: `${name.trimmed} is being created. This takes a few minutes.`,
                         title: "Deployment requested",
                         type: "success",
                     });
                     await navigate("/");
                 } else if (CreateDeploymentOutcome.NameTaken === outcome) {
-                    setTakenName(trimmedName);
+                    name.markTaken();
                 } else {
                     reportCreateFailure();
                 }
@@ -246,14 +227,11 @@ const CreateDeploymentPage = () => {
                     >
                         <FieldGroup className={"gap-8"}>
                             <DeploymentNameField
-                                value={name}
-                                error={nameInvalid ?
-                                    nameError :
-                                    null}
-                                onChange={setName}
-                                onBlur={() => {
-                                    setNameTouched(true);
-                                }}/>
+                                error={name.error}
+                                help={name.help}
+                                value={name.value}
+                                onBlur={name.touch}
+                                onChange={name.setValue}/>
                             <DeploymentConfiguration
                                 hasLoadFailed={hasRegionLoadFailed}
                                 regions={regions}
@@ -280,7 +258,7 @@ const CreateDeploymentPage = () => {
                     </form>
                 </div>
                 <DeploymentReview
-                    name={name}
+                    name={name.value}
                     selectedRegion={selectedRegion}/>
             </div>
         </main>

@@ -31,26 +31,35 @@ const REGIONS = [
     },
 ];
 
+// Longer than the name check's debounce.
+const NAME_CHECK_WAIT_MS = 400;
+
 const auth = vi.hoisted(() => ({useAuth0: vi.fn()}));
 
 vi.mock("@auth0/auth0-react", () => auth);
 
 /**
- * Answers the region catalog and deployment creation requests.
+ * Answers the region catalog, name check, and deployment creation requests.
  *
  * @param regions The catalog the API reports.
  * @param createResponse The response to a creation request.
+ * @param isNameAvailable Whether the name check reports names as free.
  * @return The stubbed fetch.
  */
 const stubApi = (
     regions: unknown = REGIONS,
     createResponse = new Response(null, {status: 202}),
+    isNameAvailable = true,
 ) => {
-    const fetch = vi.fn((url: string, init?: RequestInit) => Promise.resolve(
-        "POST" === init?.method ?
-            createResponse :
-            Response.json(regions),
-    ));
+    const fetch = vi.fn((url: string, init?: RequestInit) => {
+        if ("POST" === init?.method) {
+            return Promise.resolve(createResponse);
+        }
+
+        return Promise.resolve(Response.json(url.includes("/check-name") ?
+            {available: isNameAvailable, reason: null} :
+            regions));
+    });
 
     auth.useAuth0.mockReturnValue({
         getAccessTokenSilently: () => Promise.resolve("test-token"),
@@ -171,7 +180,9 @@ describe("CreateDeploymentPage", () => {
 
         await submitName("Bad_Name");
 
-        expect(screen.getByRole("alert")).toHaveTextContent("Use 5-32 lowercase letters");
+        expect(screen.getByRole("alert")).toHaveTextContent(
+            "Use only lowercase letters, numbers, and hyphens.",
+        );
         expect(fetch).not.toHaveBeenCalledWith(
             expect.anything(),
             expect.objectContaining({method: "POST"}),
@@ -189,7 +200,68 @@ describe("CreateDeploymentPage", () => {
         await submitName("application-logs");
 
         expect(await screen.findByRole("alert")).toHaveTextContent(
-            "This name is already in use.",
+            "\"application-logs\" is already in use.",
+        );
+    });
+});
+
+describe("CreateDeploymentPage name availability", () => {
+    it("reports availability while the name is typed", async () => {
+        stubApi();
+        render(
+            <MemoryRouter>
+                <CreateDeploymentPage/>
+            </MemoryRouter>
+        );
+
+        fireEvent.change(screen.getByRole("textbox", {name: "Deployment name"}), {
+            target: {value: "application-logs"},
+        });
+
+        expect(screen.getByText("Checking availability…")).toBeVisible();
+        expect(await screen.findByText("\"application-logs\" is available.")).toBeVisible();
+    });
+
+    it("reports a taken name before submitting", async () => {
+        const fetch = stubApi(REGIONS, new Response(null, {status: 202}), false);
+        render(
+            <MemoryRouter>
+                <CreateDeploymentPage/>
+            </MemoryRouter>
+        );
+        fireEvent.change(screen.getByRole("textbox", {name: "Deployment name"}), {
+            target: {value: "application-logs"},
+        });
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+            "\"application-logs\" is already in use.",
+        );
+        expect(screen.queryByText(/lowercase letters, numbers, and hyphens/u))
+            .not.toBeInTheDocument();
+        expect(fetch).toHaveBeenCalledWith(
+            expect.stringContaining("/check-name?name=application-logs"),
+            expect.anything(),
+        );
+    });
+
+    it("does not check a malformed name", async () => {
+        const fetch = stubApi();
+        render(
+            <MemoryRouter>
+                <CreateDeploymentPage/>
+            </MemoryRouter>
+        );
+
+        fireEvent.change(screen.getByRole("textbox", {name: "Deployment name"}), {
+            target: {value: "Bad_Name"},
+        });
+        await new Promise((resolve) => {
+            setTimeout(resolve, NAME_CHECK_WAIT_MS);
+        });
+
+        expect(fetch).not.toHaveBeenCalledWith(
+            expect.stringContaining("/check-name"),
+            expect.anything(),
         );
     });
 });
