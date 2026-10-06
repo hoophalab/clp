@@ -1,6 +1,7 @@
 import * as z from "zod";
 
 import {
+    type DeploymentPhase,
     DeploymentPhaseSchema,
     WorkerCountSchema,
 } from "../metadata-db-schemas/deployment.js";
@@ -10,6 +11,19 @@ const DEPLOYMENT_NAME_LENGTH_MIN = 5;
 const DEPLOYMENT_NAME_LENGTH_MAX = 32;
 const DEPLOYMENT_LIST_LIMIT_DEFAULT = 20;
 const DEPLOYMENT_LIST_LIMIT_MAX = 100;
+
+/**
+ * Stable deployment phases from which deletion can be requested.
+ */
+const DEPLOYMENT_DELETABLE_PHASES: ReadonlySet<DeploymentPhase> = new Set<DeploymentPhase>([
+    "CONFIG_FAILED",
+    "CREATE_FAILED",
+    "DELETE_FAILED",
+    "RESUME_FAILED",
+    "RUNNING",
+    "SUSPEND_FAILED",
+    "SUSPENDED",
+]);
 const DEPLOYMENT_LIST_PAGE_MAX = 1_000;
 
 const DeploymentNameSchema = z.string().min(DEPLOYMENT_NAME_LENGTH_MIN)
@@ -35,6 +49,10 @@ const CheckDeploymentNameQuerySchema = z.strictObject({
 const CheckDeploymentNameResponseSchema = z.strictObject({
     available: z.boolean(),
     reason: z.string().nullable(),
+});
+
+const DeploymentIdParamSchema = z.strictObject({
+    id: z.string().min(1),
 });
 
 const DateTimeSchema = z.preprocess(
@@ -130,8 +148,10 @@ export {
     CheckDeploymentNameResponseSchema,
     type CreateDeploymentRequest,
     CreateDeploymentRequestSchema,
+    DEPLOYMENT_DELETABLE_PHASES,
     DEPLOYMENT_NAME_LENGTH_MAX,
     DEPLOYMENT_NAME_LENGTH_MIN,
+    DeploymentIdParamSchema,
     DeploymentNameSchema,
     type DeploymentResponse,
     DeploymentResponseSchema,

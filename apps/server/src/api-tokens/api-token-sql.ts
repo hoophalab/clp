@@ -234,6 +234,33 @@ const markRevoked = async (pool: Pool, selector: Buffer): Promise<void> => {
 };
 
 /**
+ * Marks every active token for a deployment revoked. Idempotent.
+ *
+ * @param pool
+ * @param deploymentId
+ */
+const markDeploymentTokensRevoked = async (pool: Pool, deploymentId: string): Promise<void> => {
+    await pool.execute(
+        "UPDATE auth.api_tokens SET revoked_at = UTC_TIMESTAMP(6)" +
+        " WHERE deployment_id = ? AND revoked_at IS NULL",
+        [deploymentId],
+    );
+};
+
+/**
+ * Removes every user's access to a deployment. Idempotent.
+ *
+ * @param pool
+ * @param deploymentId
+ */
+const deleteDeploymentAccess = async (pool: Pool, deploymentId: string): Promise<void> => {
+    await pool.execute(
+        "DELETE FROM auth.user_deployment_access WHERE deployment_id = ?",
+        [deploymentId],
+    );
+};
+
+/**
  * Deletes a token, provided its TTL has passed and the caller is the creator
  *
  * @param pool
@@ -259,10 +286,12 @@ const deleteIfExpired = async (pool: Pool, selector: Buffer, userId: string): Pr
 
 export {
     type ApiTokenRow,
+    deleteDeploymentAccess,
     deleteIfExpired,
     hasDeploymentAccess,
     insertToken,
     isDuplicateAlias,
+    markDeploymentTokensRevoked,
     markRevoked,
     selectBySelector,
     selectVisible,

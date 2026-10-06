@@ -33,6 +33,7 @@ export {
     CheckDeploymentNameResponseSchema,
     type CreateDeploymentRequest,
     CreateDeploymentRequestSchema,
+    DEPLOYMENT_DELETABLE_PHASES,
     DEPLOYMENT_NAME_LENGTH_MAX,
     DEPLOYMENT_NAME_LENGTH_MIN,
     DeploymentNameSchema,

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Keep deployment lifecycle routes together. */
 import {randomUUID} from "node:crypto";
 
 import {Hono} from "hono";
@@ -6,11 +7,17 @@ import {
     MongoServerError,
 } from "mongodb";
 
+import {
+    deleteDeploymentAccess,
+    markDeploymentTokensRevoked,
+} from "../api-tokens/api-token-sql.js";
 import type {ClusterDatabaseManager} from "../cluster-databases.js";
 import {
     CheckDeploymentNameQuerySchema,
     CheckDeploymentNameResponseSchema,
     CreateDeploymentRequestSchema,
+    DEPLOYMENT_DELETABLE_PHASES,
+    DeploymentIdParamSchema,
     DeploymentNameSchema,
     DeploymentResponseSchema,
     ListDeploymentsQuerySchema,
@@ -23,6 +30,7 @@ import {
     HTTP_STATUS_ACCEPTED,
     HTTP_STATUS_BAD_REQUEST,
     HTTP_STATUS_CONFLICT,
+    HTTP_STATUS_NOT_FOUND,
     HTTP_STATUS_OK,
 } from "../http-status.js";
 import {
@@ -215,6 +223,78 @@ const createDeploymentRoutes = ({
 
                 return context.json(
                     parseContractResponse(DeploymentResponseSchema, deployment),
+                    HTTP_STATUS_ACCEPTED,
+                );
+            },
+        )
+        .delete(
+            "/:id",
+            requestValidator("param", DeploymentIdParamSchema),
+            async (context) => {
+                const {id} = context.req.valid("param");
+                const ownershipFilter = context.get("isAdmin") ?
+                    {} :
+                    {"metadata.owner_id": context.get("userId")};
+                const deployment = await deployments.findOne({
+                    _id: id,
+                    ...ownershipFilter,
+                });
+
+                if (null === deployment) {
+                    return context.json(
+                        createErrorEnvelope("not_found"),
+                        HTTP_STATUS_NOT_FOUND,
+                    );
+                }
+
+                if (!DEPLOYMENT_DELETABLE_PHASES.has(deployment.status.phase)) {
+                    return context.json(
+                        createErrorEnvelope("CONFLICT"),
+                        HTTP_STATUS_CONFLICT,
+                    );
+                }
+
+                const clusterDatabase = await clusterDatabaseManager.getPool(
+                    deployment.spec.region,
+                    deployment.spec.cluster_id,
+                );
+
+                await markDeploymentTokensRevoked(clusterDatabase, id);
+                await deleteDeploymentAccess(clusterDatabase, id);
+
+                const deletionRequested = await deployments.findOneAndUpdate(
+                    {
+                        "_id": id,
+                        ...ownershipFilter,
+                        "status.phase": deployment.status.phase,
+                    },
+                    {
+                        $set: {
+                            "status.phase": "DELETE_REQUESTED",
+                            "status.phase_transition_records.DELETE_REQUESTED": new Date(),
+                        },
+                        $unset: {
+                            "status.error": "",
+                            "status.pending_update": "",
+                        },
+                    },
+                    {returnDocument: "after"},
+                );
+
+                if (null === deletionRequested) {
+                    return context.json(
+                        createErrorEnvelope("CONFLICT"),
+                        HTTP_STATUS_CONFLICT,
+                    );
+                }
+
+                await deploymentOrchestrator.schedule(id);
+
+                return context.json(
+                    parseContractResponse(
+                        DeploymentResponseSchema,
+                        deletionRequested,
+                    ),
                     HTTP_STATUS_ACCEPTED,
                 );
             },
