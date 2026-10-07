@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import type {ErrorHandler} from "hono";
 import type {Db} from "mongodb";
 import type {Pool} from "mysql2/promise";
@@ -173,7 +174,7 @@ const connectToAllClusters = async (
  * @param deployment
  * @param userId
  * @return Every token on the deployment for its owner; only the caller's own
- * for anyone else with access; null when the caller has no access.
+ * for anyone else with access; null when a non-owner has no access.
  * @throws {ClusterUnreachableError} When the deployment's cluster cannot be
  * reached.
  */
@@ -188,14 +189,20 @@ const listDeploymentTokens = async (
         deployment.spec.cluster_id,
     );
 
-    if (!await hasDeploymentAccess(pool, subjectOf(userId), deployment._id)) {
+    // Deleting a deployment drops its access rows, so the owner is checked
+    // separately to keep its revoked tokens listable.
+    const isOwner = deployment.metadata.owner_id === userId;
+    if (!isOwner && !await hasDeploymentAccess(pool, subjectOf(userId), deployment._id)) {
         return null;
     }
 
-    const ownedIds = deployment.metadata.owner_id === userId ?
-        [deployment._id] :
-        [];
-    const rows = await selectVisible(pool, subjectOf(userId), ownedIds);
+    const rows = await selectVisible(
+        pool,
+        subjectOf(userId),
+        isOwner ?
+            [deployment._id] :
+            [],
+    );
     const now = new Date();
 
     return rows

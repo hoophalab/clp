@@ -1,3 +1,4 @@
+import {useState} from "react";
 import {Link} from "react-router";
 
 import type {DeploymentResponse} from "@cloud.yscope.com/server/contracts";
@@ -9,8 +10,10 @@ import {
     PlayIcon,
     ServerIcon,
     Settings2Icon,
+    Trash2Icon,
 } from "lucide-react";
 
+import {DeploymentDeleteDialog} from "~/components/deployment-delete-dialog";
 import {DeploymentMetadata} from "~/components/deployment-metadata";
 import {Badge} from "~/components/ui/badge";
 import {Button} from "~/components/ui/button";
@@ -30,6 +33,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import {
     getDeploymentStatusLabel,
+    isDeploymentDeletable,
     STATUS_BADGES,
 } from "~/lib/deployments";
 import {cn} from "~/lib/utils";
@@ -119,6 +123,7 @@ const DeploymentCardHeader = ({
     titleId,
 }: DeploymentCardHeaderProps) => {
     const badge = STATUS_BADGES[getDeploymentStatusLabel(deployment)];
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
     return (
         <CardHeader
@@ -205,9 +210,25 @@ const DeploymentCardHeader = ({
                                 <KeyRoundIcon/>
                                 Manage tokens
                             </DropdownMenuItem>
+                            {isDeploymentDeletable(deployment) ?
+                                <DropdownMenuItem
+                                    variant={"destructive"}
+                                    onClick={() => {
+                                        setIsDeleteDialogOpen(true);
+                                    }}
+                                >
+                                    <Trash2Icon/>
+                                    Delete
+                                </DropdownMenuItem> :
+                                null}
                         </DropdownMenuGroup>
                     </DropdownMenuContent>
                 </DropdownMenu>
+                {isDeleteDialogOpen ?
+                    <DeploymentDeleteDialog
+                        deployment={deployment}
+                        onOpenChange={setIsDeleteDialogOpen}/> :
+                    null}
             </CardAction>
         </CardHeader>
     );

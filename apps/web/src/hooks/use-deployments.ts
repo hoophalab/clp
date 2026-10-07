@@ -60,6 +60,25 @@ const refreshDeployments = () => {
 };
 
 /**
+ * Requests asynchronous deletion of a deployment.
+ *
+ * @param apiClient
+ * @param deploymentId
+ */
+const deleteDeployment = async (
+    apiClient: ApiClient,
+    deploymentId: string,
+): Promise<void> => {
+    const response = await apiClient.api.v1.deployments[":id"].$delete({
+        param: {id: deploymentId},
+    });
+
+    if (!response.ok) {
+        throw new Error("Failed to delete deployment.");
+    }
+};
+
+/**
  * Loads the caller's deployments and keeps them current by polling.
  *
  * @param apiClient
@@ -108,6 +127,7 @@ const useDeployments = (apiClient: ApiClient) => {
 
 
 export {
+    deleteDeployment,
     refreshDeployments,
     useDeployments,
 };

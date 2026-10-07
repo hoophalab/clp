@@ -1,4 +1,7 @@
-import type {DeploymentResponse} from "@cloud.yscope.com/server/contracts";
+import {
+    DEPLOYMENT_DELETABLE_PHASES,
+    type DeploymentResponse,
+} from "@cloud.yscope.com/server/contracts";
 
 
 type DeploymentPhase = DeploymentResponse["status"]["phase"];
@@ -73,6 +76,16 @@ const getDeploymentStatusLabel = (deployment: DeploymentResponse): DeploymentSta
 );
 
 /**
+ * Determines whether a deployment is in a stable phase that can be deleted.
+ *
+ * @param deployment
+ * @return Whether the deployment can be deleted.
+ */
+const isDeploymentDeletable = (deployment: DeploymentResponse): boolean => (
+    DEPLOYMENT_DELETABLE_PHASES.has(deployment.status.phase)
+);
+
+/**
  * Filters and orders deployments for the inventory view.
  *
  * @param deployments The deployments available to the current user.
@@ -119,6 +132,7 @@ export {
     type DeploymentStatusLabel,
     filterDeployments,
     getDeploymentStatusLabel,
+    isDeploymentDeletable,
     STARTER_WORKER_COUNT,
     STATUS_BADGES,
 };

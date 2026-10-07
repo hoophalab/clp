@@ -1,3 +1,5 @@
+import {MemoryRouter} from "react-router";
+
 import {
     cleanup,
     fireEvent,
@@ -147,6 +149,54 @@ describe("DeploymentsPage", () => {
             expect.stringContaining("page=2"),
             expect.anything(),
         );
+    });
+});
+
+describe("DeploymentsPage deletion and failures", () => {
+    it("requests deletion after the user confirms", async () => {
+        const [deployment] = DEPLOYMENTS;
+        const fetch = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+            if ("DELETE" === init?.method) {
+                return Promise.resolve(Response.json(deployment, {status: 202}));
+            }
+
+            return Promise.resolve(Response.json({
+                data: DEPLOYMENTS,
+                limit: 100,
+                page: 1,
+                total: DEPLOYMENTS.length,
+            }));
+        });
+
+        vi.stubGlobal("fetch", fetch);
+        render(
+            <MemoryRouter>
+                <DeploymentsPage/>
+            </MemoryRouter>,
+        );
+
+        const card = await screen.findByRole("article", {name: "logs-running"});
+
+        fireEvent.click(within(card).getByRole("button", {
+            name: "More actions for logs-running",
+        }));
+        expect(await screen.findByRole("menuitem", {name: "Manage tokens"}))
+            .toHaveAttribute("href", `/tokens?deployment=${deployment._id}`);
+        fireEvent.click(await screen.findByRole("menuitem", {
+            name: "Delete",
+        }));
+
+        expect(screen.getByRole("alertdialog")).toHaveTextContent(
+            "This action cannot be undone.",
+        );
+        fireEvent.click(screen.getByRole("button", {name: "Delete"}));
+
+        await vi.waitFor(() => {
+            expect(fetch).toHaveBeenCalledWith(
+                expect.stringContaining(`/api/v1/deployments/${deployment._id}`),
+                expect.objectContaining({method: "DELETE"}),
+            );
+        });
     });
 
     it("reports a failed load", async () => {
