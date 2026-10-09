@@ -6,7 +6,6 @@ import {useAuth0} from "@auth0/auth0-react";
 import {
     ChevronsUpDownIcon,
     LogOutIcon,
-    SettingsIcon,
 } from "lucide-react";
 
 import {
@@ -138,13 +137,6 @@ const NavUser = ({
                                     </div>
                                 </div>
                             </DropdownMenuLabel>
-                        </DropdownMenuGroup>
-                        <DropdownMenuSeparator/>
-                        <DropdownMenuGroup>
-                            <DropdownMenuItem>
-                                <SettingsIcon/>
-                                Settings
-                            </DropdownMenuItem>
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator/>
                         <DropdownMenuGroup>
