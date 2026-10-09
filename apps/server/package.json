@@ -24,7 +24,9 @@
   },
   "dependencies": {
     "@aws-sdk/client-cloudformation": "^3.1132.0",
+    "@aws-sdk/client-s3": "^3.1146.0",
     "@aws-sdk/client-secrets-manager": "^3.1135.0",
+    "@aws-sdk/client-sts": "^3.1146.0",
     "@hono/node-server": "2.0.12",
     "@hono/standard-validator": "0.3.0",
     "@standard-schema/spec": "^1.1.0",

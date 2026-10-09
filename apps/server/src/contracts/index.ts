@@ -58,3 +58,14 @@ export {
     type ProviderRegions,
     ProviderRegionsSchema,
 } from "./region.js";
+export {
+    IAM_ROLE_ARN_PATTERN,
+    type S3AccessFailureReason,
+    S3AccessFailureReasonSchema,
+    S3BucketNameSchema,
+    S3ObjectKeySchema,
+    type VerifyS3AccessRequest,
+    VerifyS3AccessRequestSchema,
+    type VerifyS3AccessResponse,
+    VerifyS3AccessResponseSchema,
+} from "./s3-access.js";
