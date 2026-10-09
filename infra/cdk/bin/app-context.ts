@@ -11,6 +11,7 @@ const DEFAULT_EXTERNAL_SECRETS_CHART_VERSION = "2.7.0";
 const DEFAULT_ENVOY_GATEWAY_CHART_VERSION = "v1.8.2";
 const GIT_SHA_PATTERN = /^[0-9a-f]{40}$/;
 const GITHUB_REPOSITORY_PATTERN = /^[\w.-]+\/[\w.-]+$/;
+const IAM_USER_NAME_PATTERN = /^[\w+=.@-]{1,64}$/;
 const IPV4_OCTET = "(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)";
 const IPV4_CIDR_PATTERN = new RegExp(
     `^${IPV4_OCTET}(?:\\.${IPV4_OCTET}){3}/(?:3[0-2]|[12]?\\d)$`,
@@ -232,6 +233,32 @@ export const getDatabasePublicAccessCidrs = function (app: cdk.App): string[] {
     }
 
     return cidrs;
+};
+
+/**
+ * Gets the IAM users allowed to assume the console server role.
+ *
+ * @param app CDK app.
+ * @return IAM user names; empty when unset, which lets no one assume the role.
+ */
+export const getConsoleServerUserNames = function (app: cdk.App): string[] {
+    const contextValue: unknown = app.node.tryGetContext(
+        "com.yscope.cloud/consoleServerUserNames",
+    ) ?? [];
+
+    if (
+        false === Array.isArray(contextValue) ||
+        false === contextValue.every(
+            (userName) => "string" === typeof userName && IAM_USER_NAME_PATTERN.test(userName),
+        )
+    ) {
+        return panic(
+            "Invalid context variable: 'com.yscope.cloud/consoleServerUserNames'." +
+            " It should be a list of IAM user names in cdk.json (e.g. [\"alice\", \"bob\"]).",
+        );
+    }
+
+    return contextValue as string[];
 };
 
 /**

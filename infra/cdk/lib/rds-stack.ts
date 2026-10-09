@@ -1,4 +1,5 @@
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as rds from "aws-cdk-lib/aws-rds";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as cdk from "aws-cdk-lib/core";
@@ -10,6 +11,7 @@ import {
     ClusterScopedStack,
     ClusterScopedStackProps,
 } from "./cluster-scoped-stack";
+import {getConsoleServerRoleArn} from "./iam-constants";
 
 
 const DATABASE_BACKUP_DAYS = 7;
@@ -59,6 +61,11 @@ export class RdsStack extends ClusterScopedStack {
         });
 
         databaseSecret.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN);
+        databaseSecret.addToResourcePolicy(new iam.PolicyStatement({
+            actions: ["secretsmanager:GetSecretValue"],
+            principals: [new iam.ArnPrincipal(getConsoleServerRoleArn(this))],
+            resources: ["*"],
+        }));
 
         const database = new rds.DatabaseInstance(this, "Database", {
             allocatedStorage: 20,

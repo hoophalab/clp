@@ -13,6 +13,7 @@ import {
     ClusterScopedStack,
     ClusterScopedStackProps,
 } from "../cluster-scoped-stack";
+import {getConsoleServerRoleArn} from "../iam-constants";
 import {addDeploymentDatabase} from "./database";
 import {addGatewayResources} from "./gateway";
 
@@ -309,11 +310,16 @@ export class DeploymentStack extends ClusterScopedStack {
             },
         });
         const role = new iam.Role(this, "ServiceAccountRole", {
-            assumedBy: new iam.OpenIdConnectPrincipal(
-                oidcProvider,
-                {
-                    StringEquals: serviceAccountConditions,
-                },
+            assumedBy: new iam.CompositePrincipal(
+                new iam.OpenIdConnectPrincipal(
+                    oidcProvider,
+                    {
+                        StringEquals: serviceAccountConditions,
+                    },
+                ),
+                new iam.AccountRootPrincipal().withConditions({
+                    ArnEquals: {"aws:PrincipalArn": getConsoleServerRoleArn(this)},
+                }),
             ),
             description: "IAM role for the CLP Kubernetes service account.",
             roleName: `cloud-${props.clusterName}-${props.deploymentId}-s3`,
