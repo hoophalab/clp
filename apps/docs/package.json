@@ -3,9 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "uv run --locked --no-dev --isolated sphinx-build -M html source build --fail-on-warning --fresh-env",
-    "clean": "uv run --locked sphinx-build -M clean source build",
-    "dev": "uv run --locked sphinx-autobuild source build/html",
-    "typecheck": "uv run --locked mypy --strict --cache-dir build/mypy-cache source/conf.py"
+    "build": "uv run --locked --no-dev --isolated sphinx-build -M html src/user build/public -c src --fail-on-warning",
+    "build:internal": "uv run --locked --no-dev --isolated sphinx-build -M html src build/internal --fail-on-warning",
+    "clean": "uv run --locked sphinx-build -M clean src build",
+    "clean:internal": "uv run --locked sphinx-build -M clean src build/internal",
+    "clean:public": "uv run --locked sphinx-build -M clean src/user build/public",
+    "dev": "pnpm run clean:public && uv run --locked sphinx-autobuild -M html src/user build/public -c src --watch src/conf.py --fail-on-warning",
+    "dev:internal": "pnpm run clean:internal && uv run --locked sphinx-autobuild -M html src build/internal --fail-on-warning",
+    "typecheck": "uv run --locked mypy --strict --cache-dir build/mypy-cache src/conf.py"
   }
 }

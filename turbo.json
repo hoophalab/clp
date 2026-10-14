@@ -6,8 +6,22 @@
       "dependsOn": ["^build"]
     },
     "@cloud.yscope.com/docs#build": {
-      "dependsOn": ["^build"],
-      "outputs": ["build/doctrees/**", "build/html/**"]
+      "dependsOn": ["^build", "clean:public"],
+      "inputs": ["src/user/**", "src/conf.py", "pyproject.toml", "uv.lock", ".python-version"],
+      "outputs": ["build/public/doctrees/**", "build/public/html/**"]
+    },
+    "@cloud.yscope.com/docs#build:internal": {
+      "dependsOn": ["^build", "clean:internal"],
+      "inputs": ["src/**", "pyproject.toml", "uv.lock", ".python-version"],
+      "outputs": ["build/internal/doctrees/**", "build/internal/html/**"]
+    },
+    "@cloud.yscope.com/docs#clean:public": {
+      "inputs": ["package.json"],
+      "cache": false
+    },
+    "@cloud.yscope.com/docs#clean:internal": {
+      "inputs": ["package.json"],
+      "cache": false
     },
     "@cloud.yscope.com/server#build": {
       "dependsOn": ["^build"],

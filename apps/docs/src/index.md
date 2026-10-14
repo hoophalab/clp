@@ -1,11 +1,9 @@
 # YScope Cloud Console documentation
 
-This is the YScope Cloud Console documentation scaffold.
-
 ```{toctree}
 :maxdepth: 2
-:caption: Contents
 
+User guide <user/index>
 developer/clp-oss-release
 developer/glossary
 ```
