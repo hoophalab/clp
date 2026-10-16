@@ -86,6 +86,18 @@ const isDeploymentDeletable = (deployment: DeploymentResponse): boolean => (
 );
 
 /**
+ * Determines whether a deployment is neither deleted nor being deleted.
+ *
+ * @param deployment
+ * @return Whether the deployment is still active.
+ */
+const isDeploymentActive = (deployment: DeploymentResponse): boolean => {
+    const status = getDeploymentStatusLabel(deployment);
+
+    return "deleted" !== status && "deleting" !== status;
+};
+
+/**
  * Filters and orders deployments for the inventory view.
  *
  * @param deployments The deployments available to the current user.
@@ -132,6 +144,7 @@ export {
     type DeploymentStatusLabel,
     filterDeployments,
     getDeploymentStatusLabel,
+    isDeploymentActive,
     isDeploymentDeletable,
     STARTER_WORKER_COUNT,
     STATUS_BADGES,

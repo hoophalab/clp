@@ -9,8 +9,8 @@ import {
     MoreHorizontalIcon,
     PlayIcon,
     ServerIcon,
-    Settings2Icon,
     Trash2Icon,
+    UploadIcon,
 } from "lucide-react";
 
 import {DeploymentDeleteDialog} from "~/components/deployment-delete-dialog";
@@ -33,6 +33,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import {
     getDeploymentStatusLabel,
+    isDeploymentActive,
     isDeploymentDeletable,
     STATUS_BADGES,
 } from "~/lib/deployments";
@@ -124,6 +125,7 @@ const DeploymentCardHeader = ({
 }: DeploymentCardHeaderProps) => {
     const badge = STATUS_BADGES[getDeploymentStatusLabel(deployment)];
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const encodedId = encodeURIComponent(deployment._id);
 
     return (
         <CardHeader
@@ -200,10 +202,14 @@ const DeploymentCardHeader = ({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align={"end"}>
                         <DropdownMenuGroup>
-                            <DropdownMenuItem>
-                                <Settings2Icon/>
-                                View details
-                            </DropdownMenuItem>
+                            {isDeploymentActive(deployment) ?
+                                <DropdownMenuItem
+                                    render={<Link to={`/s3-input?deployment=${encodedId}`}/>}
+                                >
+                                    <UploadIcon/>
+                                    Connect your logs
+                                </DropdownMenuItem> :
+                                null}
                             <DropdownMenuItem
                                 render={<Link to={`/tokens?deployment=${deployment._id}`}/>}
                             >

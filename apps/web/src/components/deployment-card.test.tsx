@@ -1,3 +1,5 @@
+import {MemoryRouter} from "react-router";
+
 import type {DeploymentResponse} from "@cloud.yscope.com/server/contracts";
 import {
     cleanup,
@@ -77,4 +79,30 @@ it.each(["missing",
     } finally {
         window.removeEventListener("error", onError);
     }
+});
+
+it.each([
+    {phase: "RUNNING", visible: true},
+    {phase: "DELETE_REQUESTED", visible: false},
+    {phase: "DELETING", visible: false},
+    {phase: "DELETED", visible: false},
+] as const)("shows Connect your logs for $phase: $visible", async ({phase, visible}) => {
+    const phaseDeployment: DeploymentResponse = {
+        ...deployment,
+        status: {
+            phase: phase,
+            phase_transition_records: {[phase]: "2026-09-22T12:00:00.000Z"},
+        },
+    };
+
+    render(
+        <MemoryRouter>
+            <DeploymentCard deployment={phaseDeployment}/>
+        </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", {name: `More actions for ${name}`}));
+
+    expect(await screen.findByRole("menuitem", {name: "Manage tokens"})).toBeVisible();
+    expect(Boolean(screen.queryByRole("menuitem", {name: "Connect your logs"})))
+        .toBe(visible);
 });

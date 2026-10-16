@@ -180,6 +180,9 @@ describe("DeploymentsPage deletion and failures", () => {
         fireEvent.click(within(card).getByRole("button", {
             name: "More actions for logs-running",
         }));
+        expect(screen.queryByRole("menuitem", {name: "View details"})).not.toBeInTheDocument();
+        expect(await screen.findByRole("menuitem", {name: "Connect your logs"}))
+            .toHaveAttribute("href", `/s3-input?deployment=${deployment._id}`);
         expect(await screen.findByRole("menuitem", {name: "Manage tokens"}))
             .toHaveAttribute("href", `/tokens?deployment=${deployment._id}`);
         fireEvent.click(await screen.findByRole("menuitem", {

@@ -24,6 +24,7 @@ import AuthenticatedLayout from "~/routes/authenticated-layout";
 import ConsoleLayout from "~/routes/console-layout";
 import CreateDeploymentPage, {handle as creationHandle} from "~/routes/create-deployment";
 import DeploymentsPage, {handle as inventoryHandle} from "~/routes/deployments";
+import S3InputPage, {handle as s3Handle} from "~/routes/s3-input";
 
 
 const auth = vi.hoisted(() => ({useAuth0: vi.fn(), loginWithRedirect: vi.fn()}));
@@ -73,6 +74,11 @@ const renderConsole = (path = "/") => {
                     path: "deployments/new",
                     element: <CreateDeploymentPage/>,
                     handle: creationHandle,
+                },
+                {
+                    path: "s3-input",
+                    element: <S3InputPage/>,
+                    handle: s3Handle,
                 },
             ],
         }],
@@ -140,18 +146,45 @@ describe("Deployment creation navigation", () => {
         expect(screen.getByRole("button", {name: "Refresh deployments"})).toBeVisible();
     });
 
-    it("protects direct navigation and preserves the Auth0 return path", async () => {
+    it.each(["/deployments/new",
+        "/s3-input"])("protects %s", async (path) => {
         auth.useAuth0.mockReturnValue({
             isAuthenticated: false,
             isLoading: false,
             loginWithRedirect: auth.loginWithRedirect,
         });
-        renderConsole("/deployments/new");
-        expect(screen.queryByRole("textbox", {name: "Deployment name"})).not.toBeInTheDocument();
+        renderConsole(path);
+        expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
         await waitFor(() => {
             expect(auth.loginWithRedirect).toHaveBeenCalledWith({
-                appState: {returnTo: "/deployments/new"},
+                appState: {returnTo: path},
             });
         });
+    });
+});
+
+describe("S3 setup navigation", () => {
+    it("opens Connect your logs with breadcrumbs and returns to the inventory", async () => {
+        renderConsole("/s3-input");
+        expect(await screen.findByRole("heading", {level: 1, name: "Connect your logs"}))
+            .toBeVisible();
+        const breadcrumbs = screen.getByRole("navigation", {name: "breadcrumb"});
+        expect(within(breadcrumbs).getByText("Connect your logs"))
+            .toHaveAttribute("aria-current", "page");
+        expect(within(breadcrumbs).getByRole("link", {name: "Deployments"}))
+            .toHaveAttribute("href", "/");
+        expect(screen.queryByText("Trial plan")).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", {name: "Refresh deployments"})).not.toBeInTheDocument();
+        expect(screen.getByRole("button", {name: "Verify access"})).toBeDisabled();
+        fireEvent.click(screen.getByRole("link", {name: "Back"}));
+        expect(await screen.findByRole("button", {name: "Refresh deployments"})).toBeVisible();
+    });
+
+    it("uses S3 metadata for a direct trailing-slash URL", () => {
+        renderConsole("/s3-input/?source=bookmark#permissions");
+        const breadcrumbs = screen.getByRole("navigation", {name: "breadcrumb"});
+        expect(within(breadcrumbs).getByText("Connect your logs"))
+            .toHaveAttribute("aria-current", "page");
+        expect(screen.queryByRole("link", {name: "Create Deployment"})).not.toBeInTheDocument();
     });
 });
