@@ -165,6 +165,37 @@ it("requests deletion of an owned deployment", async () => {
     expect(schedule).toHaveBeenCalledExactlyOnceWith("owned");
     await expect(deploymentCollection.findOne({_id: "owned"}))
         .resolves.toMatchObject({status: {phase: "DELETE_REQUESTED"}});
+    expect(body.status.deletion_requested_at)
+        .toBe(body.status.phase_transition_records.DELETE_REQUESTED);
+});
+
+it("keeps the first deletion request's time when a failed deletion is retried", async () => {
+    const firstRequestedAt = new Date("2026-09-29T08:00:00.000Z");
+    const deployment = createDeployment("retried", OWNER_ID);
+    await deploymentCollection.insertOne({
+        ...deployment,
+        status: {
+            deletion_requested_at: firstRequestedAt,
+            phase: "DELETE_FAILED",
+            phase_transition_records: {
+                DELETE_FAILED: new Date("2026-09-29T08:20:00.000Z"),
+                DELETE_REQUESTED: firstRequestedAt,
+                DELETING: new Date("2026-09-29T08:00:01.000Z"),
+                RUNNING: CREATED_AT,
+            },
+        },
+    });
+
+    const response = await createTestApp().request(
+        "/api/v1/deployments/retried",
+        {method: "DELETE"},
+    );
+    const body = DeploymentResponseSchema.parse(await response.json());
+
+    expect(response.status).toBe(HTTP_STATUS_ACCEPTED);
+    expect(body.status.deletion_requested_at).toBe(firstRequestedAt.toISOString());
+    expect(Date.parse(body.status.phase_transition_records.DELETE_REQUESTED ?? ""))
+        .toBeGreaterThan(firstRequestedAt.getTime());
 });
 
 it("does not reveal a deployment owned by another user", async () => {

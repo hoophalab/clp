@@ -92,6 +92,7 @@ const DeploymentResponseSchema = z.strictObject({
     }),
     status: z.strictObject({
         archive_bucket: z.string().optional(),
+        deletion_requested_at: DateTimeSchema.optional(),
         deploymentNotFunctional: z.boolean().optional(),
         error: z.string().optional(),
         last_active_at: DateTimeSchema.optional(),

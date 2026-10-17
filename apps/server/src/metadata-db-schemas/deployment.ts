@@ -124,6 +124,11 @@ const PendingDeploymentUpdateSchema = z.strictObject({
 
 const DeploymentStatusCommonShape = {
     archive_bucket: z.string().exactOptional(),
+
+    // When deletion was first requested; billing stops then. Unlike
+    // `phase_transition_records.DELETE_REQUESTED`, a retried deletion doesn't change it.
+    deletion_requested_at: z.date().exactOptional(),
+
     deploymentNotFunctional: z.boolean().exactOptional(),
     error: z.string().exactOptional(),
     last_active_at: z.date().exactOptional(),

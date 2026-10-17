@@ -319,21 +319,16 @@ const createDeploymentRoutes = ({
                 await markDeploymentTokensRevoked(clusterDatabase, id);
                 await deleteDeploymentAccess(clusterDatabase, id);
 
+                const requestedAt = new Date();
                 const deletionRequested = await deployments.findOneAndUpdate(
+                    {"_id": id, ...ownershipFilter, "status.phase": deployment.status.phase},
                     {
-                        "_id": id,
-                        ...ownershipFilter,
-                        "status.phase": deployment.status.phase,
-                    },
-                    {
+                        $min: {"status.deletion_requested_at": requestedAt},
                         $set: {
                             "status.phase": "DELETE_REQUESTED",
-                            "status.phase_transition_records.DELETE_REQUESTED": new Date(),
+                            "status.phase_transition_records.DELETE_REQUESTED": requestedAt,
                         },
-                        $unset: {
-                            "status.error": "",
-                            "status.pending_update": "",
-                        },
+                        $unset: {"status.error": "", "status.pending_update": ""},
                     },
                     {returnDocument: "after"},
                 );
