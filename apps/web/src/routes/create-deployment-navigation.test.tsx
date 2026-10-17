@@ -95,7 +95,7 @@ describe("Deployment creation navigation", () => {
         const entry = screen.getAllByRole("link", {name: "Create Deployment"})[index];
         expect(entry).toHaveAttribute("href", "/deployments/new");
         fireEvent.click(entry);
-        expect(screen.getByRole("heading", {name: "Create your first deployment"})).toBeVisible();
+        expect(screen.getByRole("heading", {name: "Create your deployment"})).toBeVisible();
         expect(screen.queryByText("Trial plan")).not.toBeInTheDocument();
         expect(screen.queryByRole("button", {name: "Refresh deployments"})).not.toBeInTheDocument();
         fireEvent.click(screen.getByRole("link", {name: "Back"}));
@@ -123,7 +123,7 @@ describe("Deployment creation navigation", () => {
 
     it("uses the creation toolbar for a trailing-slash URL", () => {
         renderConsole("/deployments/new/");
-        expect(screen.getByRole("heading", {name: "Create your first deployment"})).toBeVisible();
+        expect(screen.getByRole("heading", {name: "Create your deployment"})).toBeVisible();
         expect(screen.queryByText("Trial plan")).not.toBeInTheDocument();
         expect(screen.queryByRole("link", {name: "Create Deployment"})).not.toBeInTheDocument();
     });

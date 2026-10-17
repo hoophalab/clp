@@ -25,53 +25,7 @@ import {
 import {Separator} from "~/components/ui/separator";
 import type {Region} from "~/hooks/use-regions";
 import {STARTER_WORKER_COUNT} from "~/lib/deployments";
-import {cn} from "~/lib/utils";
 
-
-const GETTING_STARTED_STEPS = ["Create deployment",
-    "Add logs",
-    "Run a search"];
-
-/**
- * Describes the three stages without linking to unavailable screens.
- *
- * @return The informational getting-started sequence.
- */
-const GettingStartedSteps = () => (
-    <ol
-        aria-label={"Getting started"}
-        className={"flex flex-col gap-4 sm:flex-row sm:items-center"}
-    >
-        {GETTING_STARTED_STEPS.map((step, index) => (
-            <li
-                key={step}
-                aria-current={0 === index ?
-                    "step" :
-                    false}
-                className={cn(
-                    "flex flex-1 items-center gap-3 text-sm",
-                    0 === index ?
-                        "font-medium text-brand" :
-                        "text-muted-foreground",
-                )}
-            >
-                <span
-                    className={cn(
-                        "flex size-8 shrink-0 items-center justify-center rounded-full",
-                        0 === index ?
-                            "bg-brand text-brand-foreground" :
-                            "bg-muted",
-                    )}
-                >
-                    {index + 1}
-                </span>
-                <span>
-                    {step}
-                </span>
-            </li>
-        ))}
-    </ol>
-);
 
 type DeploymentConfigurationProps = {
     hasLoadFailed: boolean;
@@ -233,5 +187,5 @@ const DeploymentReview = ({
 );
 
 export {
-    DeploymentConfiguration, DeploymentReview, GettingStartedSteps,
+    DeploymentConfiguration, DeploymentReview,
 };

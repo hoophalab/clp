@@ -9,7 +9,6 @@ import {HTTP_STATUS_CONFLICT} from "@cloud.yscope.com/server/contracts";
 import {
     DeploymentConfiguration,
     DeploymentReview,
-    GettingStartedSteps,
 } from "~/components/deployment-setup";
 import {
     Button,
@@ -203,7 +202,7 @@ const CreateDeploymentPage = () => {
         >
             <div className={"flex flex-col gap-2"}>
                 <h1 className={"text-3xl font-semibold tracking-tight"}>
-                    Create your first deployment
+                    Create your deployment
                 </h1>
                 <p className={"text-muted-foreground"}>
                     A deployment is where your logs are stored and searched.
@@ -216,7 +215,6 @@ const CreateDeploymentPage = () => {
                 )}
             >
                 <div className={"flex min-w-0 flex-col gap-8 xl:self-stretch"}>
-                    <GettingStartedSteps/>
                     <form
                         aria-label={"Deployment details"}
                         className={"flex flex-col gap-8 xl:flex-1"}
