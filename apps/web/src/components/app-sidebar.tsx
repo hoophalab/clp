@@ -5,7 +5,6 @@ import {Link} from "react-router";
 
 import {
     BookOpenIcon,
-    ChartNoAxesColumnIncreasingIcon,
     CreditCardIcon,
     KeyRoundIcon,
     MessageSquareIcon,
@@ -46,11 +45,6 @@ const data = {
                     icon: KeyRoundIcon,
                     title: "API tokens",
                     url: "/tokens",
-                },
-                {
-                    icon: ChartNoAxesColumnIncreasingIcon,
-                    title: "Metrics",
-                    url: "#",
                 },
             ],
             title: "Operations",
