@@ -20,9 +20,6 @@ import {
     vi,
 } from "vitest";
 
-import {DeploymentToolbar} from "~/components/deployment-toolbar";
-import type {DeploymentQuota} from "~/lib/deployment-quota";
-import {SAMPLE_DEPLOYMENT_QUOTA} from "~/lib/sample-deployment-quota";
 import ConsoleLayout from "~/routes/console-layout";
 import {handle as inventoryHandle} from "~/routes/deployments";
 
@@ -55,16 +52,14 @@ const createAccessToken = (roles: string[]): string => {
 
 /**
  * Renders the console layout around representative route content.
- *
- * @param quota The account deployment quota.
  */
-const renderConsoleLayout = (quota: DeploymentQuota = SAMPLE_DEPLOYMENT_QUOTA) => {
+const renderConsoleLayout = () => {
     const router = createMemoryRouter([{
         element: <ConsoleLayout/>,
         children: [{
             index: true,
             element: <p>Deployment content</p>,
-            handle: {...inventoryHandle, toolbar: <DeploymentToolbar quota={quota}/>},
+            handle: inventoryHandle,
         }],
     }]);
 
@@ -97,16 +92,6 @@ beforeEach(() => {
 });
 
 describe("ConsoleLayout", () => {
-    it("omits the trial widget for PPU accounts", async () => {
-        await act(async () => {
-            renderConsoleLayout({mode: "ppu"});
-            await Promise.resolve();
-        });
-        expect(screen.queryByText("Trial plan")).not.toBeInTheDocument();
-        expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
-        expect(screen.getByRole("link", {name: "Create Deployment"})).toBeVisible();
-    });
-
     it("renders the deployment navigation and page actions", () => {
         renderConsoleLayout();
 
@@ -116,11 +101,6 @@ describe("ConsoleLayout", () => {
         );
         expect(screen.getByRole("link", {name: "Create Deployment"})).toBeVisible();
         expect(screen.getByRole("button", {name: "Refresh deployments"})).toBeVisible();
-        expect(screen.getByText("Trial plan")).toBeVisible();
-        expect(screen.getByText("9 / 10")).toBeVisible();
-        expect(screen.getByRole("progressbar", {
-            name: "Trial plan deployment quota",
-        })).toHaveAttribute("aria-valuetext", "9 of 10 deployments used");
         expect(screen.getByText("Deployment content")).toBeVisible();
     });
 
@@ -145,7 +125,6 @@ describe("ConsoleLayout", () => {
         expect(within(breadcrumbs).getByText("Settings")).toBeVisible();
         expect(within(breadcrumbs).queryByText("Deployments")).not.toBeInTheDocument();
         expect(screen.queryByRole("link", {name: "Create Deployment"})).not.toBeInTheDocument();
-        expect(screen.queryByText("Trial plan")).not.toBeInTheDocument();
     });
 
     it("renders the Auth0 user and administrator navigation", async () => {

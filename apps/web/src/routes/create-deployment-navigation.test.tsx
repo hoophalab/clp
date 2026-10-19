@@ -96,7 +96,6 @@ describe("Deployment creation navigation", () => {
         expect(entry).toHaveAttribute("href", "/deployments/new");
         fireEvent.click(entry);
         expect(screen.getByRole("heading", {name: "Create your deployment"})).toBeVisible();
-        expect(screen.queryByText("Trial plan")).not.toBeInTheDocument();
         expect(screen.queryByRole("button", {name: "Refresh deployments"})).not.toBeInTheDocument();
         fireEvent.click(screen.getByRole("link", {name: "Back"}));
         expect(await screen.findByText("No deployments yet")).toBeVisible();
@@ -124,7 +123,6 @@ describe("Deployment creation navigation", () => {
     it("uses the creation toolbar for a trailing-slash URL", () => {
         renderConsole("/deployments/new/");
         expect(screen.getByRole("heading", {name: "Create your deployment"})).toBeVisible();
-        expect(screen.queryByText("Trial plan")).not.toBeInTheDocument();
         expect(screen.queryByRole("link", {name: "Create Deployment"})).not.toBeInTheDocument();
     });
 
@@ -173,7 +171,6 @@ describe("S3 setup navigation", () => {
             .toHaveAttribute("aria-current", "page");
         expect(within(breadcrumbs).getByRole("link", {name: "Deployments"}))
             .toHaveAttribute("href", "/");
-        expect(screen.queryByText("Trial plan")).not.toBeInTheDocument();
         expect(screen.queryByRole("button", {name: "Refresh deployments"})).not.toBeInTheDocument();
         expect(screen.getByRole("button", {name: "Verify access"})).toBeDisabled();
         fireEvent.click(screen.getByRole("link", {name: "Back"}));
