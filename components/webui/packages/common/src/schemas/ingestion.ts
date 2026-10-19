@@ -19,15 +19,9 @@ const S3ScannerCreationSchema = Type.Object({
         DatasetNameSchema])),
     timestampKey: Type.Optional(Type.String()),
     unstructured: Type.Optional(Type.Boolean()),
-}, {additionalProperties: false});
-
-type S3ScannerCreation = Static<typeof S3ScannerCreationSchema>;
-
-const S3ScannerJobSchema = Type.Object({
-    id: Type.Integer({minimum: 1, maximum: Number.MAX_SAFE_INTEGER}),
 });
 
-type S3ScannerJob = Static<typeof S3ScannerJobSchema>;
+type S3ScannerCreation = Static<typeof S3ScannerCreationSchema>;
 
 /**
  * Uses the request schema for the form's required S3 inputs.
@@ -53,9 +47,6 @@ const validateS3ScannerInput = (
 
 export {
     S3ScannerCreationSchema,
-    S3ScannerJobSchema,
     validateS3ScannerInput,
 };
-export type {
-    S3ScannerCreation, S3ScannerJob,
-};
+export type {S3ScannerCreation};
