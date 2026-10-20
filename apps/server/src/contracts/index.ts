@@ -13,6 +13,12 @@ export {
     HTTP_STATUS_UNAUTHORIZED,
 } from "../http-status.js";
 export {
+    type AccountOverviewResponse,
+    AccountOverviewResponseSchema,
+    type CompleteOnboardingRequest,
+    CompleteOnboardingRequestSchema,
+} from "./account.js";
+export {
     ALIAS_LENGTH_MAX,
     type ApiTokenResponse,
     ApiTokenResponseSchema,

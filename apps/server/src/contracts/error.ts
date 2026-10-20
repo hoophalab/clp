@@ -8,10 +8,13 @@ const ErrorCodeSchema = z.enum([
     "SERVICE_UNAVAILABLE",
     "UNKNOWN_CLUSTER_TARGET",
     "VERSION_NOT_FOUND",
+    "account_unavailable",
+    "agreement_changed",
     "forbidden",
     "internal_server_error",
     "invalid_request",
     "not_found",
+    "onboarding_required",
     "unauthorized",
 ]);
 
@@ -33,10 +36,13 @@ const PublicErrorMessages = {
     SERVICE_UNAVAILABLE: "The deployment's region is temporarily unavailable.",
     UNKNOWN_CLUSTER_TARGET: "The target cluster is invalid.",
     VERSION_NOT_FOUND: "The chart version doesn't exist.",
+    account_unavailable: "Your account could not be loaded or saved. Please try again.",
+    agreement_changed: "The agreement has changed. Please review the current version.",
     forbidden: "Access to the requested resource is denied.",
     internal_server_error: "An unexpected error occurred.",
     invalid_request: "The request is invalid.",
     not_found: "The requested resource was not found.",
+    onboarding_required: "Complete your profile and accept the agreement to continue.",
     unauthorized: "Authentication is required.",
 } as const satisfies Record<ErrorCode, string>;
 
