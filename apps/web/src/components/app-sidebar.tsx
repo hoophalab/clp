@@ -9,7 +9,6 @@ import {
     KeyRoundIcon,
     MessageSquareIcon,
     ScrollTextIcon,
-    SendIcon,
     ServerIcon,
     WorkflowIcon,
 } from "lucide-react";
@@ -61,11 +60,6 @@ const data = {
             title: "Documentation",
             url: "#",
             icon: BookOpenIcon,
-        },
-        {
-            title: "Send feedback",
-            url: "#",
-            icon: SendIcon,
         },
     ],
     admin: [
