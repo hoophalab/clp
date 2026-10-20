@@ -66,7 +66,7 @@ const DeploymentFilters = ({
 }: DeploymentFiltersProps) => {
     return (
         <div className={"grid gap-3 lg:grid-cols-[minmax(18rem,1fr)_12rem_12rem_14rem]"}>
-            <InputGroup className={"h-11"}>
+            <InputGroup>
                 <InputGroupInput
                     aria-label={"Search deployments"}
                     placeholder={"Search deployments..."}
@@ -89,7 +89,7 @@ const DeploymentFilters = ({
             >
                 <SelectTrigger
                     aria-label={"Filter by status"}
-                    className={"h-11 w-full"}
+                    className={"w-full"}
                 >
                     <SelectValue>
                         {"all" === status ?
@@ -121,7 +121,7 @@ const DeploymentFilters = ({
             >
                 <SelectTrigger
                     aria-label={"Filter by region"}
-                    className={"h-11 w-full"}
+                    className={"w-full"}
                 >
                     <SelectValue>
                         {"all" === region ?
@@ -153,7 +153,7 @@ const DeploymentFilters = ({
             >
                 <SelectTrigger
                     aria-label={"Sort deployments"}
-                    className={"h-11 w-full"}
+                    className={"w-full"}
                 >
                     <SelectValue>
                         {SORT_LABELS[sort]}
