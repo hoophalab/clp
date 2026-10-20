@@ -5,7 +5,6 @@ import {Link} from "react-router";
 
 import {
     BookOpenIcon,
-    CreditCardIcon,
     KeyRoundIcon,
     MessageSquareIcon,
     ScrollTextIcon,
@@ -48,11 +47,6 @@ const data = {
             ],
             title: "Operations",
             url: "#",
-        },
-        {
-            title: "Billing",
-            url: "#",
-            icon: CreditCardIcon,
         },
     ],
     navSecondary: [
