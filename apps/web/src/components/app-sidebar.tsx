@@ -52,7 +52,8 @@ const data = {
     navSecondary: [
         {
             title: "Documentation",
-            url: "#",
+            url: "/docs/",
+            reloadDocument: true,
             icon: BookOpenIcon,
         },
     ],

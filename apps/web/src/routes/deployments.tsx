@@ -121,7 +121,7 @@ const DeploymentFirstUseState = () => {
                             variant={"brand-link"}
                             render={
                                 <a
-                                    href={"https://docs.yscope.com/"}
+                                    href={"/docs/"}
                                     rel={"noreferrer"}
                                     target={"_blank"}/>
                             }

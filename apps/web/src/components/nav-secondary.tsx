@@ -28,19 +28,22 @@ const NavSecondary = ({
         title: string;
         url: string;
         icon: LucideIcon;
+        reloadDocument?: boolean;
     }[];
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) => {
     return (
         <SidebarGroup {...props}>
             <SidebarGroupContent>
                 <SidebarMenu>
-                    {items.map(({icon: Icon, title, url}) => (
+                    {items.map(({icon: Icon, title, url, reloadDocument}) => (
                         <SidebarMenuItem key={title}>
                             <SidebarMenuButton
                                 size={"sm"}
                                 render={url.startsWith("#") ?
                                     <a href={url}/> :
-                                    <Link to={url}/>}
+                                    <Link
+                                        reloadDocument={reloadDocument}
+                                        to={url}/>}
                             >
                                 <Icon/>
                                 <span>
