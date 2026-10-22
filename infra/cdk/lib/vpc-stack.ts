@@ -8,6 +8,7 @@ import {
     ClusterScopedStack,
     ClusterScopedStackProps,
 } from "./cluster-scoped-stack";
+import {VPC_MAX_AZS} from "./vpc-constants";
 
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -20,7 +21,7 @@ export class VpcStack extends ClusterScopedStack {
         super(scope, id, props);
 
         this.vpc = new ec2.Vpc(this, "Vpc", {
-            maxAzs: 3,
+            maxAzs: VPC_MAX_AZS,
             ipAddresses: ec2.IpAddresses.cidr("10.0.0.0/16"),
             natGateways: 1,
             subnetConfiguration: [

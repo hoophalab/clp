@@ -14,6 +14,7 @@ import {
     ClusterScopedStackProps,
 } from "../cluster-scoped-stack";
 import {getConsoleServerRoleArn} from "../iam-constants";
+import {VPC_MAX_AZS} from "../vpc-constants";
 import {addDeploymentDatabase} from "./database";
 import {addGatewayResources} from "./gateway";
 
@@ -39,7 +40,8 @@ export class DeploymentStack extends ClusterScopedStack {
     constructor (scope: Construct, id: string, props: DeploymentStackProps) {
         super(scope, id, props);
 
-        const {availabilityZones} = cdk.Stack.of(this);
+        const availabilityZones = cdk.Stack.of(this).availabilityZones
+            .slice(0, VPC_MAX_AZS);
         const privateSubnetIds = cdk.Fn.split(
             ",",
             cdk.Fn.importValue(

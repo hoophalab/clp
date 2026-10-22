@@ -30,7 +30,6 @@ describe("VpcStack", () => {
             RouteTableIds: [
                 {Ref: Match.stringLikeRegexp("^VpcPrivateSubnet1RouteTable")},
                 {Ref: Match.stringLikeRegexp("^VpcPrivateSubnet2RouteTable")},
-                {Ref: Match.stringLikeRegexp("^VpcPrivateSubnet3RouteTable")},
             ],
             ServiceName: {
                 "Fn::Join": [
