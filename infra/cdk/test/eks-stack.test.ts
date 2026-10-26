@@ -64,7 +64,7 @@ describe("EksStack", () => {
                 MinSize: 0,
             },
         });
-        template.resourceCountIs("AWS::EKS::Addon", 1);
+        template.resourceCountIs("AWS::EKS::Addon", 2);
         template.hasResourceProperties("Custom::AWSCDK-EKS-HelmChart", {
             Chart: "external-dns",
             Values: Match.serializedJson(Match.objectLike({

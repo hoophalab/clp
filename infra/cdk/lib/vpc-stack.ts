@@ -31,7 +31,7 @@ export class VpcStack extends ClusterScopedStack {
                     subnetType: ec2.SubnetType.PUBLIC,
                 },
                 {
-                    cidrMask: 24,
+                    cidrMask: 18,
                     name: "Private",
                     subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
                 },

@@ -208,6 +208,7 @@ export class EksStack extends ClusterScopedStack {
         this.cluster.node.addDependency(controlPlaneLogGroup);
         this.cluster.awsAuth.addMastersRole(kubectlRole);
 
+        const vpcCniAddon = this.addVpcCniAddon();
         const ebsCsiDriverAddon = this.addEbsCsiDriverAddon();
         this.addGp3StorageClass(ebsCsiDriverAddon);
 
@@ -218,6 +219,7 @@ export class EksStack extends ClusterScopedStack {
             maxSize: 20,
             minSize: 0,
         });
+        nodeGroup.node.addDependency(vpcCniAddon);
 
         nodeGroup.role.addManagedPolicy(
             iam.ManagedPolicy.fromAwsManagedPolicyName(
@@ -374,6 +376,19 @@ export class EksStack extends ClusterScopedStack {
             clusterName: this.cluster.clusterName,
             resolveConflicts: "OVERWRITE",
             serviceAccountRoleArn: ebsCsiDriverRole.roleArn,
+        });
+    }
+
+    private addVpcCniAddon (): eks.CfnAddon {
+        return new eks.CfnAddon(this, "VpcCniAddon", {
+            addonName: "vpc-cni",
+            clusterName: this.cluster.clusterName,
+            configurationValues: JSON.stringify({
+                env: {
+                    ENABLE_PREFIX_DELEGATION: "true",
+                },
+            }),
+            resolveConflicts: "OVERWRITE",
         });
     }
 
