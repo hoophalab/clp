@@ -58,7 +58,7 @@ export const addSharedProxySql = function (
 ): SharedProxySqlResources {
     const proxysqlSecret = new secretsmanager.Secret(scope, "ProxySqlSecret", {
         generateSecretString: {
-            excludeCharacters: ":;\\\"'",
+            excludePunctuation: true,
             generateStringKey: "password",
             passwordLength: 32,
             secretStringTemplate: JSON.stringify({
@@ -71,7 +71,7 @@ export const addSharedProxySql = function (
         "ProxySqlMonitorSecret",
         {
             generateSecretString: {
-                excludeCharacters: ":;\\\"'",
+                excludePunctuation: true,
                 generateStringKey: "password",
                 passwordLength: 32,
                 secretStringTemplate: JSON.stringify({

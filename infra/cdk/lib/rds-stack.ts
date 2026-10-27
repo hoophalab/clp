@@ -56,7 +56,6 @@ export class RdsStack extends ClusterScopedStack {
         }
 
         const databaseSecret = new rds.DatabaseSecret(this, "DatabaseSecret", {
-            excludeCharacters: ":;\\\"'",
             username: DATABASE_ADMIN_USERNAME,
         });
 
