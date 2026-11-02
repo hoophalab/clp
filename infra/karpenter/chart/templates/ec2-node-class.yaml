@@ -15,9 +15,3 @@ spec:
   kubelet:
     systemReserved:
       memory: "512Mi"
-  blockDeviceMappings:
-    - deviceName: "/dev/xvda"
-      ebs:
-        volumeSize: "20Gi"
-        volumeType: "gp3"
-        encrypted: true
