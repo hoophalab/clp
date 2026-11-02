@@ -14,6 +14,7 @@ import {
     ClusterScopedStackProps,
 } from "../cluster-scoped-stack";
 import {getConsoleServerRoleArn} from "../iam-constants";
+import type {ResourceQuantities} from "../kubernetes-resources";
 import {VPC_MAX_AZS} from "../vpc-constants";
 import {addDeploymentDatabase} from "./database";
 import {addGatewayResources} from "./gateway";
@@ -30,8 +31,13 @@ export interface DeploymentStackProps extends ClusterScopedStackProps {
     chart: string;
     chartVersion: string;
     clusterSecret: string;
+    compressionWorkerResource: ResourceQuantities;
+    compressionWorkerSlotsPerPod: number;
     deploymentId: string;
     imageTag: string;
+    queryWorkerResource: ResourceQuantities;
+    queryWorkerSlotsPerPod: number;
+    resultsCacheResource: ResourceQuantities;
 }
 
 export class DeploymentStack extends ClusterScopedStack {
@@ -161,6 +167,28 @@ export class DeploymentStack extends ClusterScopedStack {
                     clpPackage: {
                         repository: packageRepository,
                         tag: props.imageTag,
+                    },
+                },
+                resources: {
+                    compressionWorker: {
+                        limits: props.compressionWorkerResource,
+                        requests: props.compressionWorkerResource,
+                    },
+                    queryWorker: {
+                        limits: props.queryWorkerResource,
+                        requests: props.queryWorkerResource,
+                    },
+                    resultsCache: {
+                        limits: props.resultsCacheResource,
+                        requests: props.resultsCacheResource,
+                    },
+                },
+                scheduling: {
+                    compressionWorker: {
+                        slotsPerPod: props.compressionWorkerSlotsPerPod,
+                    },
+                    queryWorker: {
+                        slotsPerPod: props.queryWorkerSlotsPerPod,
                     },
                 },
                 serviceAccount: {

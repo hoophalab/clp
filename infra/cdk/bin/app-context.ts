@@ -20,6 +20,8 @@ const KUBERNETES_NAMESPACE_LABEL_PATTERN = (
     /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/
 );
 
+const DEFAULT_WORKER_SLOTS_PER_POD = 2;
+
 /**
  * Throws an error with the given message.
  *
@@ -337,6 +339,28 @@ export const getClpChartConfig = function (
                 "(-c com.yscope.cloud/clpChartVersion=1.2.3)."
             ),
     };
+};
+
+/**
+ * Gets the number of concurrent tasks a CLP worker pod runs from CDK context.
+ *
+ * @param app CDK app.
+ * @param key Context variable name without the "com.yscope.cloud/" prefix.
+ * @return Positive slot count.
+ */
+export const getWorkerSlotsPerPod = function (app: cdk.App, key: string): number {
+    const contextValue: unknown = app.node.tryGetContext(`com.yscope.cloud/${key}`) ??
+        DEFAULT_WORKER_SLOTS_PER_POD;
+    const slotsPerPod = Number(contextValue);
+
+    if (false === Number.isInteger(slotsPerPod) || 0 >= slotsPerPod) {
+        return panic(
+            `Invalid context variable: 'com.yscope.cloud/${key}'. Pass a positive integer ` +
+            `(-c com.yscope.cloud/${key}=2).`,
+        );
+    }
+
+    return slotsPerPod;
 };
 
 /**

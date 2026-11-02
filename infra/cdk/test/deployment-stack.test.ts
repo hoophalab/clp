@@ -16,6 +16,8 @@ const CLUSTER_SECRET = "cluster-secret";
 const DEPLOYMENT_ID = "sample";
 const HELM_CHART_RESOURCE_TYPE = "Custom::AWSCDK-EKS-HelmChart";
 const KUBERNETES_RESOURCE_COUNT = 5;
+const COMPRESSION_WORKER_SLOTS_PER_POD = 2;
+const QUERY_WORKER_SLOTS_PER_POD = 2;
 
 // Known HMAC-SHA256 vectors with an unpadded base64url digest.
 const PASSWORD_CASES = [
@@ -56,9 +58,14 @@ const synthesizeDeploymentStack = (
         chartVersion: "0.0.0",
         clusterName: "test",
         clusterSecret: clusterSecret,
+        compressionWorkerResource: {memory: "1536Mi"},
+        compressionWorkerSlotsPerPod: COMPRESSION_WORKER_SLOTS_PER_POD,
         deploymentId: deploymentId,
         env: {account: "123456789012", region: "us-east-1"},
         imageTag: "test",
+        queryWorkerResource: {memory: "1536Mi"},
+        queryWorkerSlotsPerPod: QUERY_WORKER_SLOTS_PER_POD,
+        resultsCacheResource: {memory: "768Mi"},
     });
 
     return Template.fromStack(stack);
