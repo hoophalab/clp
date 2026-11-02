@@ -8,13 +8,13 @@ import * as cdk from "aws-cdk-lib/core";
 import {NagSuppressions} from "cdk-nag";
 import {Construct} from "constructs";
 
+import type {ResourceQuantities} from "../../bin/app-context";
 import {clusterExportName} from "../cluster-exports";
 import {
     ClusterScopedStack,
     ClusterScopedStackProps,
 } from "../cluster-scoped-stack";
 import {getConsoleServerRoleArn} from "../iam-constants";
-import type {ResourceQuantities} from "../kubernetes-resources";
 import {VPC_MAX_AZS} from "../vpc-constants";
 import {addDeploymentDatabase} from "./database";
 import {addGatewayResources} from "./gateway";

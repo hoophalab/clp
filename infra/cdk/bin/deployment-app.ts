@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import {DeploymentStack} from "../lib/deployment-stack";
-import {getKubernetesResources} from "../lib/kubernetes-resources";
 import {
     createApp,
     getClpChartConfig,
@@ -10,6 +9,7 @@ import {
     getClusterName,
     getClusterSecret,
     getEnv,
+    getKubernetesResources,
     getWorkerSlotsPerPod,
 } from "./app-context";
 
@@ -19,21 +19,25 @@ const clusterName = getClusterName(app);
 const clusterSecret = getClusterSecret(app);
 const env = getEnv();
 const clpChartConfig = getClpChartConfig(app);
+const compressionWorkerSlotsPerPod = getWorkerSlotsPerPod(app, "compressionWorkerSlotsPerPod");
 const compressionWorkerResource = getKubernetesResources(
     app,
     "compressionWorkerResource",
-    {memory: "1536Mi"},
+    {cpu: String(compressionWorkerSlotsPerPod), memory: "1536Mi"},
 );
-const compressionWorkerSlotsPerPod = getWorkerSlotsPerPod(app, "compressionWorkerSlotsPerPod");
 const deploymentId = getClpDeploymentId(app);
 const imageTag = getClpImageTag(app);
+const queryWorkerSlotsPerPod = getWorkerSlotsPerPod(app, "queryWorkerSlotsPerPod");
 const queryWorkerResource = getKubernetesResources(
     app,
     "queryWorkerResource",
-    {memory: "1536Mi"},
+    {cpu: String(queryWorkerSlotsPerPod), memory: "1536Mi"},
 );
-const queryWorkerSlotsPerPod = getWorkerSlotsPerPod(app, "queryWorkerSlotsPerPod");
-const resultsCacheResource = getKubernetesResources(app, "resultsCacheResource", {memory: "768Mi"});
+const resultsCacheResource = getKubernetesResources(
+    app,
+    "resultsCacheResource",
+    {memory: "1024Mi"},
+);
 
 // eslint-disable-next-line no-new
 new DeploymentStack(app, `Deployment-${deploymentId}`, {
