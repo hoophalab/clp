@@ -24,6 +24,7 @@ import {
     CLOUDFLARE_API_TOKEN_SECRET_NAME,
     ENVOY_GATEWAY_SYSTEM_NAMESPACE,
 } from "./gateway";
+import {addKarpenter} from "./karpenter";
 import {addSharedProxySql} from "./proxysql";
 
 
@@ -241,6 +242,17 @@ export class EksStack extends ClusterScopedStack {
             ],
         );
 
+        const karpenter = addKarpenter({
+            architecture: props.nodeGroupAmiType.includes("ARM_64") ?
+                "arm64" :
+                "amd64",
+            cluster: this.cluster,
+            clusterName: props.clusterName,
+            nodeGroup: nodeGroup,
+            replicas: Math.min(2, Math.max(1, props.nodeGroupDesiredSize)),
+            scope: this,
+        });
+
 
         // eslint-disable-next-line no-new
         new ec2.CfnSecurityGroupIngress(this, "DatabaseIngress", {
@@ -263,7 +275,7 @@ export class EksStack extends ClusterScopedStack {
             secretArns: [props.rdsSecretArn],
         });
 
-        externalSecrets.chart.node.addDependency(nodeGroup);
+        externalSecrets.chart.node.addDependency(karpenter);
 
         const proxysql = addSharedProxySql({
             cluster: this.cluster,
@@ -274,7 +286,7 @@ export class EksStack extends ClusterScopedStack {
             scope: this,
         });
 
-        proxysql.chart.node.addDependency(nodeGroup);
+        proxysql.chart.node.addDependency(karpenter);
 
         const externalDns = addExternalDns({
             chartVersion: props.externalDnsChartVersion,
@@ -290,7 +302,7 @@ export class EksStack extends ClusterScopedStack {
             sourceNamespace: ENVOY_GATEWAY_SYSTEM_NAMESPACE,
         });
 
-        externalDns.chart.node.addDependency(nodeGroup);
+        externalDns.chart.node.addDependency(karpenter);
 
         const certManager = addCertManager({
             chartVersion: props.certManagerChartVersion,
@@ -298,7 +310,7 @@ export class EksStack extends ClusterScopedStack {
             scope: this,
         });
 
-        certManager.chart.node.addDependency(nodeGroup);
+        certManager.chart.node.addDependency(karpenter);
 
         const gateway = addGateway({
             auth0ClientId: props.auth0ClientId,
@@ -323,7 +335,7 @@ export class EksStack extends ClusterScopedStack {
             scope: this,
         });
 
-        gateway.chart.node.addDependency(nodeGroup);
+        gateway.chart.node.addDependency(karpenter);
 
         this.suppressEksProviderNags();
     }

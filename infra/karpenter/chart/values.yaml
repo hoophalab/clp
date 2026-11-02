@@ -1,0 +1,4 @@
+instanceProfile: ""
+subnetIds: []
+securityGroupId: ""
+architecture: "arm64"

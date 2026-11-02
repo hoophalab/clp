@@ -1,0 +1,33 @@
+apiVersion: "karpenter.sh/v1"
+kind: "NodePool"
+metadata:
+  name: {{ .Release.Name | quote }}
+spec:
+  template:
+    spec:
+      nodeClassRef:
+        group: "karpenter.k8s.aws"
+        kind: "EC2NodeClass"
+        name: {{ .Release.Name | quote }}
+      requirements:
+        - key: "kubernetes.io/os"
+          operator: "In"
+          values: ["linux"]
+        - key: "kubernetes.io/arch"
+          operator: "In"
+          values: [{{ .Values.architecture | quote }}]
+        - key: "karpenter.sh/capacity-type"
+          operator: "In"
+          values: ["on-demand"]
+        - key: "karpenter.k8s.aws/instance-category"
+          operator: "In"
+          values: ["c", "m", "r"]
+        - key: "karpenter.k8s.aws/instance-generation"
+          operator: "In"
+          values: ["8"]
+  limits:
+    cpu: "64"
+    memory: "256Gi"
+  disruption:
+    consolidationPolicy: "WhenEmpty"
+    consolidateAfter: "1m"

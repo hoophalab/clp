@@ -645,4 +645,5 @@ export const getEnvoyGatewayChartVersion = function (app: cdk.App): string {
         "com.yscope.cloud/envoyGatewayChartVersion",
     ) as string | undefined ?? DEFAULT_ENVOY_GATEWAY_CHART_VERSION;
 };
+
 /* eslint-enable max-lines */
