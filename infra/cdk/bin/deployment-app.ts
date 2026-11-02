@@ -3,6 +3,7 @@
 import {DeploymentStack} from "../lib/deployment-stack";
 import {
     createApp,
+    DEFAULT_WORKER_SLOTS_PER_POD,
     getClpChartConfig,
     getClpDeploymentId,
     getClpImageTag,
@@ -27,6 +28,11 @@ const compressionWorkerResource = getKubernetesResources(
 );
 const deploymentId = getClpDeploymentId(app);
 const imageTag = getClpImageTag(app);
+const prestoWorkerResource = getKubernetesResources(
+    app,
+    "prestoWorkerResource",
+    {cpu: String(DEFAULT_WORKER_SLOTS_PER_POD), memory: "1536Mi"},
+);
 const queryWorkerSlotsPerPod = getWorkerSlotsPerPod(app, "queryWorkerSlotsPerPod");
 const queryWorkerResource = getKubernetesResources(
     app,
@@ -50,6 +56,7 @@ new DeploymentStack(app, `Deployment-${deploymentId}`, {
     deploymentId: deploymentId,
     env: env,
     imageTag: imageTag,
+    prestoWorkerResource: prestoWorkerResource,
     queryWorkerResource: queryWorkerResource,
     queryWorkerSlotsPerPod: queryWorkerSlotsPerPod,
     resultsCacheResource: resultsCacheResource,

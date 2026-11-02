@@ -63,6 +63,7 @@ const synthesizeDeploymentStack = (
         deploymentId: deploymentId,
         env: {account: "123456789012", region: "us-east-1"},
         imageTag: "test",
+        prestoWorkerResource: {cpu: "2", memory: "1536Mi"},
         queryWorkerResource: {memory: "1536Mi"},
         queryWorkerSlotsPerPod: QUERY_WORKER_SLOTS_PER_POD,
         resultsCacheResource: {memory: "768Mi"},

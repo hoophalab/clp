@@ -20,7 +20,7 @@ const KUBERNETES_NAMESPACE_LABEL_PATTERN = (
     /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/
 );
 
-const DEFAULT_WORKER_SLOTS_PER_POD = 2;
+export const DEFAULT_WORKER_SLOTS_PER_POD = 2;
 
 export type ResourceQuantities = Record<string, unknown>;
 

@@ -35,6 +35,7 @@ export interface DeploymentStackProps extends ClusterScopedStackProps {
     compressionWorkerSlotsPerPod: number;
     deploymentId: string;
     imageTag: string;
+    prestoWorkerResource: ResourceQuantities;
     queryWorkerResource: ResourceQuantities;
     queryWorkerSlotsPerPod: number;
     resultsCacheResource: ResourceQuantities;
@@ -173,6 +174,10 @@ export class DeploymentStack extends ClusterScopedStack {
                     compressionWorker: {
                         limits: props.compressionWorkerResource,
                         requests: props.compressionWorkerResource,
+                    },
+                    prestoWorker: {
+                        limits: props.prestoWorkerResource,
+                        requests: props.prestoWorkerResource,
                     },
                     queryWorker: {
                         limits: props.queryWorkerResource,
