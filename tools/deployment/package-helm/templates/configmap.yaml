@@ -441,7 +441,7 @@ data:
 
   presto-coordinator-config-jvm.config: |
     -server
-    -XX:MaxRAMPercentage=75
+    -XX:MaxRAMPercentage=80
     -XX:+UseG1GC
     -XX:G1HeapRegionSize=32M
     -XX:+UseGCOverheadLimit
