@@ -87,13 +87,20 @@ def _catalog(chart: RenderedChart, key: str) -> dict[str, str]:
     return parse_properties(chart.get("Secret", CATALOG_SECRET)["stringData"][key])
 
 
-def _catalog_checksums(chart: RenderedChart) -> dict[str, str]:
-    return {
-        name: chart.get("Deployment", name)["spec"]["template"]["metadata"]["annotations"][
-            "checksum/presto-catalog"
-        ]
-        for name in [COORDINATOR, WORKER]
-    }
+def _pod_checksums(chart: RenderedChart) -> dict[str, tuple[str, str]]:
+    """
+    :param chart:
+    :return: Each Presto Deployment's catalog and config checksums, which roll its pod when they
+        change.
+    """
+    checksums = {}
+    for name in [COORDINATOR, WORKER]:
+        annotations = chart.get("Deployment", name)["spec"]["template"]["metadata"]["annotations"]
+        checksums[name] = (
+            annotations["checksum/presto-catalog"],
+            annotations["checksum/presto-config"],
+        )
+    return checksums
 
 
 @pytest.fixture(scope="module")
@@ -244,12 +251,14 @@ def test_presto_catalogs_are_secret(chart_fixture: str, request: pytest.FixtureR
         } == catalog_volume["secret"]
 
 
-def test_presto_pods_roll_when_their_catalog_changes(default_auth_chart: RenderedChart) -> None:
-    """Tests that each Presto pod rolls when its own catalog changes, and only then."""
-    baseline = _catalog_checksums(default_auth_chart)
+def test_presto_pods_roll_when_their_catalog_or_config_changes(
+    default_auth_chart: RenderedChart,
+) -> None:
+    """Tests that each Presto pod rolls when its own catalog or config changes, and only then."""
+    baseline = _pod_checksums(default_auth_chart)
 
     def changed_pods(values: dict[str, Any]) -> set[str]:
-        checksums = _catalog_checksums(render_chart(values))
+        checksums = _pod_checksums(render_chart(values))
         return {name for name, checksum in checksums.items() if checksum != baseline[name]}
 
     values = _default_auth_values()
@@ -261,8 +270,46 @@ def test_presto_pods_roll_when_their_catalog_changes(default_auth_chart: Rendere
     assert {COORDINATOR} == changed_pods(values)
 
     values = _default_auth_values()
-    values["clpConfig"]["presto"]["worker"]["system_memory_gb"] = 4
+    values["clpConfig"]["presto"]["worker"]["max_drivers_per_task"] = 4
+    assert {WORKER} == changed_pods(values)
+
+    values = _default_auth_values()
+    values["clpConfig"]["presto"]["coordinator"]["max_concurrent_queries"] = 4
+    assert {COORDINATOR} == changed_pods(values)
+
+    values = _default_auth_values()
+    values["clpConfig"]["presto"]["split_filter"] = {"clp.default.default": []}
+    assert {COORDINATOR} == changed_pods(values)
+
+    values = _default_auth_values()
+    values["clpConfig"]["presto"]["serviceType"] = "NodePort"
+    values["clpConfig"]["presto"]["port"] = 30889
     assert set() == changed_pods(values)
+
+    values = _default_auth_values()
+    values["clpConfig"]["webui"]["rate_limit"] = 10
+    assert set() == changed_pods(values)
+
+
+def test_presto_bounds_archive_memory(presto_chart: RenderedChart) -> None:
+    """
+    Tests that the chart can bound the archives that workers hold in memory, by capping the queries
+    that run at once and the archives that each table scan reads at once, and that it leaves
+    Presto's defaults in place otherwise.
+    """
+    coordinator_key = "presto-coordinator-config-config.properties"
+    worker_key = "presto-worker-config-config.properties"
+    assert "query.max-concurrent-queries" not in _config_map_properties(
+        presto_chart, coordinator_key
+    )
+    assert "task.max-drivers-per-task" not in _config_map_properties(presto_chart, worker_key)
+
+    values = _presto_values()
+    values["clpConfig"]["presto"]["coordinator"]["max_concurrent_queries"] = 4
+    values["clpConfig"]["presto"]["worker"]["max_drivers_per_task"] = 2
+    chart = render_chart(values)
+    assert "4" == _config_map_properties(chart, coordinator_key)["query.max-concurrent-queries"]
+    assert "2" == _config_map_properties(chart, worker_key)["task.max-drivers-per-task"]
 
 
 @pytest.mark.parametrize(
