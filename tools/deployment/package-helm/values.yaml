@@ -169,6 +169,26 @@ resources:
   resultsCacheIndicesCreator: {}
   topologyMetricsEmitter: {}
 
+# Per-component storage for stateful components.
+storage:
+  resultsCache:
+    # How the results cache's data volume is provisioned:
+    # - "persistentVolumeClaim": A PVC per pod (from the StatefulSet's volumeClaimTemplates) that
+    #   outlives the pod. The data survives the pod being deleted or rescheduled, but the pod can only
+    #   run where its volume can attach (e.g., an EBS volume's zone).
+    # - "ephemeral": A generic ephemeral volume, i.e., a PVC created and deleted with the pod. The
+    #   data survives container restarts but not the pod being deleted or rescheduled, so the pod
+    #   can run in any zone. The results cache's indices are recreated whenever it starts.
+    #
+    # NOTE: A StatefulSet's volumeClaimTemplates can't be changed in place, so switching an existing
+    # release between types requires deleting the StatefulSet first (e.g., `kubectl delete
+    # statefulset <name> --cascade=orphan`). Switching away from "persistentVolumeClaim" leaves the old
+    # PVC behind, which must be deleted manually.
+    type: "persistentVolumeClaim"
+    size: "10Gi"
+    # StorageClass for the volume. When null, the cluster's default StorageClass is used.
+    storageClassName: null
+
 clpConfig:
   # List of third-party services bundled (deployed) as part of the chart.
   # Remove a service from this list to use an external instance instead, and configure its host/port

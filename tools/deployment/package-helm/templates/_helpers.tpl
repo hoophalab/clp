@@ -717,3 +717,19 @@ resources:
 {{- end }}
 {{- end }}
 {{- end }}{{/* define "clp.createResourceLimits" */}}
+
+{{/*
+Creates the spec of the results cache's data volume claim.
+
+@param {object} . The `storage.resultsCache` values
+@return {string} YAML for a PersistentVolumeClaimSpec
+*/}}
+{{- define "clp.resultsCacheVolumeClaimSpec" -}}
+accessModes: ["ReadWriteOnce"]
+{{- with .storageClassName }}
+storageClassName: {{ . | quote }}
+{{- end }}
+resources:
+  requests:
+    storage: {{ .size | default "10Gi" | quote }}
+{{- end }}

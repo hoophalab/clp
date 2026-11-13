@@ -1,4 +1,9 @@
 {{- if has "results_cache" .Values.clpConfig.bundled }}
+{{- $storage := .Values.storage.resultsCache }}
+{{- if not (has $storage.type (list "persistentVolumeClaim" "ephemeral")) }}
+{{- fail (printf "storage.resultsCache.type must be \"persistentVolumeClaim\" or \"ephemeral\", not %q" $storage.type) }}
+{{- end }}
+{{- $volumeName := include "clp.volumeName" (dict "component_category" "results-cache" "name" "data") }}
 apiVersion: "apps/v1"
 kind: "StatefulSet"
 metadata:
@@ -35,10 +40,7 @@ spec:
             - name: "results-cache"
               containerPort: 27017
           volumeMounts:
-            - name: {{ include "clp.volumeName" (dict
-                "component_category" "results-cache"
-                "name" "data"
-              ) | quote }}
+            - name: {{ $volumeName | quote }}
               mountPath: "/data/db"
             - name: "config"
               mountPath: "/etc/mongo/mongod.conf"
@@ -94,15 +96,22 @@ spec:
         - name: "config"
           configMap:
             name: {{ include "clp.fullname" . }}-config
+        {{- if eq $storage.type "ephemeral" }}
+        - name: {{ $volumeName | quote }}
+          ephemeral:
+            volumeClaimTemplate:
+              metadata:
+                labels:
+                  {{- include "clp.labels" . | nindent 18 }}
+                  app.kubernetes.io/component: "results-cache"
+              spec:
+                {{- include "clp.resultsCacheVolumeClaimSpec" $storage | nindent 16 }}
+        {{- end }}
+  {{- if eq $storage.type "persistentVolumeClaim" }}
   volumeClaimTemplates:
     - metadata:
-        name: {{ include "clp.volumeName" (dict
-            "component_category" "results-cache"
-            "name" "data"
-          ) | quote }}
+        name: {{ $volumeName | quote }}
       spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: "10Gi"
+        {{- include "clp.resultsCacheVolumeClaimSpec" $storage | nindent 8 }}
+  {{- end }}
 {{- end }}
