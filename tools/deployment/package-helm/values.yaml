@@ -363,6 +363,11 @@ clpConfig:
   #     logging_level: "INFO"
   #     query_max_memory_gb: 1
   #     query_max_memory_per_node_gb: 1
+  #     # Optional: The user plus system memory a query may use on a node. Presto defaults it to
+  #     # twice `query_max_memory_per_node_gb`, and refuses to start unless it plus the heap headroom
+  #     # (30% of the heap by default) fits in the coordinator's heap, which is 80% of its container
+  #     # memory. For example, with a 2Gi container, set it to 1.
+  #     query_max_total_memory_per_node_gb: 1
   #     # Optional: How many queries run at once. The rest wait in a queue.
   #     max_concurrent_queries: 2
   #   worker:

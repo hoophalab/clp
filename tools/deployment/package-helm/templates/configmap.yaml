@@ -426,6 +426,9 @@ data:
     http-server.http.port=8889
     query.max-memory={{ .coordinator.query_max_memory_gb }}GB
     query.max-memory-per-node={{ .coordinator.query_max_memory_per_node_gb }}GB
+    {{- with .coordinator.query_max_total_memory_per_node_gb }}
+    query.max-total-memory-per-node={{ . | int }}GB
+    {{- end }}
     {{- with .coordinator.max_concurrent_queries }}
     query.max-concurrent-queries={{ . | int }}
     {{- end }}
