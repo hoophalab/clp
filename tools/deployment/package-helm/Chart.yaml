@@ -17,6 +17,6 @@ keywords:
   - "search"
 dependencies:
   - name: "spider"
-    version: "0.2.0-dev.7"
-    repository: "https://github.com/y-scope/spider/raw/gh-pages"
+    version: "0.2.0-dev.7-hoophalab.1"
+    repository: "oci://568954113123.dkr.ecr.us-west-2.amazonaws.com/dev"
     condition: "spider.enabled"
