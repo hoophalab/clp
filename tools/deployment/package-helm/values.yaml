@@ -464,6 +464,9 @@ serviceAccount:
 
 # Overrides for the Spider subchart's `values.yaml`
 spider:
+  # Orchestrates compression with Spider instead of Celery: sets `package.scheduler` to "spider" and
+  # replaces the compression scheduler and workers with the compression coordinator and Spider's
+  # worker pools (`spiderConfig.worker.pools`). Size Spider's pods with `spider.resources`.
   enabled: false
   image:
     # Temporary pin: upcoming Spider `main` changes may break, and its next release is a while away.

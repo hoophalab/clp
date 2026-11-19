@@ -156,6 +156,9 @@ data:
     log_ingestor: null
     {{- end }}
     package:
+      {{- if .Values.spider.enabled }}
+      scheduler: "spider"
+      {{- end }}
       storage_engine: {{ .Values.clpConfig.package.storage_engine | quote }}
     {{- if .Values.spider.enabled }}
     query_coordinator:
