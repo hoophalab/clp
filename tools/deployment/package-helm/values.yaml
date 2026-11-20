@@ -365,14 +365,13 @@ clpConfig:
   #     query_max_memory_per_node_gb: 1
   #     # Optional: The user plus system memory a query may use on a node. Presto defaults it to
   #     # twice `query_max_memory_per_node_gb`, and refuses to start unless it plus the heap headroom
-  #     # (30% of the heap by default) fits in the coordinator's heap (see `max_heap_size`). For
-  #     # example, with a 2Gi container, set it to 1.
+  #     # (30% of the heap by default) fits in the coordinator's heap (`max_heap_size`). For example,
+  #     # with a 1536M heap, set it to 1.
   #     query_max_total_memory_per_node_gb: 1
-  #     # Optional: The coordinator's maximum JVM heap (`-Xmx`), a JVM size such as "1536M". By
-  #     # default, the heap is 80% of the coordinator's container memory limit. The rest of the
-  #     # container's memory must fit the JVM's non-heap memory (metaspace, code cache, threads, GC,
-  #     # and direct buffers), typically 300-500 MiB.
-  #     max_heap_size: "1536M"
+  #     # Optional: The coordinator's maximum JVM heap (`-Xmx`), a JVM size such as "1536M". Defaults
+  #     # to "4G". The coordinator's container memory limit must fit the heap plus the JVM's non-heap
+  #     # memory (metaspace, code cache, threads, GC, and direct buffers), typically 300-500 MiB.
+  #     max_heap_size: "4G"
   #     # Optional: How many queries run at once. The rest wait in a queue.
   #     max_concurrent_queries: 2
   #   worker:
