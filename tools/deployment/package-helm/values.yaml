@@ -118,10 +118,12 @@ scheduling:
 
   # Core
   compressionCoordinator: {}
+  # Optional `replicas` (default 1). 0 stops compression scheduling.
   compressionScheduler: {}
   logIngestor: {}
   queryCoordinator: {}
   queryScheduler: {}
+  # Optional `replicas` (default 1), like `prestoWorker.replicas`. 0 stops Presto.
   prestoCoordinator: {}
   garbageCollector: {}
   apiServer: {}

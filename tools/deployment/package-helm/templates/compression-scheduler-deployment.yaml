@@ -7,7 +7,8 @@ metadata:
     {{- include "clp.labels" . | nindent 4 }}
     app.kubernetes.io/component: "compression-scheduler"
 spec:
-  replicas: 1
+  {{- $scheduling := .Values.scheduling.compressionScheduler | default dict }}
+  replicas: {{ hasKey $scheduling "replicas" | ternary ($scheduling.replicas | int) 1 }}
   selector:
     matchLabels:
       {{- include "clp.selectorLabels" . | nindent 6 }}
