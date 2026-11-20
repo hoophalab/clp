@@ -447,7 +447,14 @@ data:
 
   presto-coordinator-config-jvm.config: |
     -server
+    {{- with .coordinator.max_heap_size }}
+    {{- if not (regexMatch "^[0-9]+[kKmMgG]?$" (toString .)) }}
+    {{- fail (printf "presto.coordinator.max_heap_size must be a JVM size such as \"1536M\" (got %q)" (toString .)) }}
+    {{- end }}
+    -Xmx{{ . }}
+    {{- else }}
     -XX:MaxRAMPercentage=80
+    {{- end }}
     -XX:+UseG1GC
     -XX:G1HeapRegionSize=32M
     -XX:+UseGCOverheadLimit
