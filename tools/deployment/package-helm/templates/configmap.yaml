@@ -435,6 +435,9 @@ data:
     {{- with .coordinator.max_concurrent_queries }}
     query.max-concurrent-queries={{ . | int }}
     {{- end }}
+    {{- with .coordinator.max_history }}
+    query.max-history={{ . | int }}
+    {{- end }}
     discovery-server.enabled=true
     discovery.uri=http://{{ include "clp.fullname" $ }}-presto-coordinator:8889
     optimizer.optimize-hash-generation=false

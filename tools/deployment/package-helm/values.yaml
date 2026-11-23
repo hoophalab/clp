@@ -376,6 +376,9 @@ clpConfig:
   #     max_heap_size: "4G"
   #     # Optional: How many queries run at once. The rest wait in a queue.
   #     max_concurrent_queries: 2
+  #     # Optional: How many finished queries the coordinator keeps for `/v1/query` and the UI
+  #     # (`query.max-history`, Presto's default 100). They're kept in the coordinator's heap.
+  #     max_history: 100
   #   worker:
   #     query_memory_gb: 4
   #     system_memory_gb: 8
